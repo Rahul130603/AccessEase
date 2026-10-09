@@ -18,7 +18,7 @@
   .badge{display:block;width:100%;height:100%;object-fit:contain}.launcher,.launcher:hover{background:transparent;padding:0}.top .logo{background:transparent}.panel{height:calc(100dvh - 130px)}.top,.intro,.footer{flex-shrink:0}.body{flex:1 1 auto;min-height:0}@media(max-width:500px){.panel{height:calc(100dvh - 110px)}}
   </style><button class="skip" hidden>Skip to main content</button><div class="hint">Make this page yours <span aria-hidden="true">↘</span></div><button class="launcher" aria-label="Open accessibility settings" aria-expanded="false" aria-controls="ae-panel">${symbol}</button>
   <section class="panel" id="ae-panel" aria-label="Accessibility settings" hidden><div class="top"><div class="logo">${symbol}</div><div><h2>AccessEase</h2><p>Your page. Your pace. Your preferences.</p></div><button class="close" aria-label="Close accessibility settings">×</button></div><div class="intro"><span>Choose what works for you</span><span class="count">0 active</span></div><div class="body">
-  <h3 class="category">READING & TEXT</h3><div class="grid">${tile('speech','▷','Text-to-Speech','Read page content aloud')}${tile('simple','Aa','Simplified Text Mode','Use available plain-language text')}${tile('highlight','▤','Paragraph Highlighting','Highlight a paragraph on hover')}</div>
+  <h3 class="category">READING & TEXT</h3><div class="grid">${tile('speech','▷','Text-to-Speech','Select text or click a paragraph to read')}${tile('simple','Aa','Simplified Text Mode','Use available plain-language text')}${tile('highlight','▤','Paragraph Highlighting','Highlight a paragraph on hover')}</div>
   <div class="select-row"><label for="rate">Adjustable Reading Speed<small>Speed of the voice reader</small></label><select id="rate"><option value="0.75">0.75× · Slower</option><option value="1">1× · Normal</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2× · Faster</option></select></div>
   <div class="select-row"><label for="align">Text Alignment<small>Adjust paragraph alignment</small></label><select id="align"><option value="original">Original</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option><option value="justify">Justify</option></select></div>
   <h3 class="category">KEYBOARD & MOTOR</h3><div class="grid">${tile('keyboard','⇥','Keyboard Navigation','Use arrow keys between controls')}${tile('focus','◎','Visible Keyboard Focus','Make the focused control stand out')}${tile('skip','↳','Skip to Main Content','Add a skip link · Press Tab')}${tile('targets','⊕','Large Click Targets','Give buttons and links more space')}${tile('voice','♩','Voice Commands','Speak commands · Microphone needed')}${tile('switches','⇆','Switch Device Support','Space: next · Enter: select')}${tile('sticky','⌘','Sticky Keys Compatibility','Sequential Ctrl, Alt, A shortcut')}</div>
@@ -27,7 +27,7 @@
   function tile(id,icon,label,description){return `<button class="tile" data-setting="${id}" aria-pressed="false"><span class="icon" aria-hidden="true">${icon}</span><strong>${label}</strong><small>${description}</small></button>`;}
   const style = document.createElement('style'); style.id='accessease-page-styles';document.head.append(style);
   const launcher=root.querySelector('.launcher'), panel=root.querySelector('.panel');
-  let recognition=null, scanned=null, scanIndex=-1, readingIndex=0, sentences=[], speechGeneration=0;
+  let recognition=null, scanned=null, scanIndex=-1, readingIndex=0, sentences=[], speechGeneration=0, selectedReadingText='';
   const originals=new Map(); const latched=new Set();
   function main(){return document.querySelector('main,[role="main"]')||document.body;}
   function persist(){try{localStorage.setItem(key,JSON.stringify({...state,speech:false,voice:false,switches:false}));}catch{}}
@@ -57,18 +57,26 @@
   function stopSpeech(){speechGeneration++;if('speechSynthesis'in window)window.speechSynthesis.cancel();state.speech=false;}
   function speakNext(generation){
     if(!state.speech||generation!==speechGeneration)return;
-    if(readingIndex>=sentences.length){stopSpeech();apply();status('Finished reading the page.');return;}
+    if(readingIndex>=sentences.length){sentences=[];readingIndex=0;status('Finished reading the selected text. Select another passage or click a paragraph.');return;}
     const utterance=new SpeechSynthesisUtterance(sentences[readingIndex]);utterance.rate=state.rate;utterance.lang=document.documentElement.lang||'en';
     utterance.onend=()=>{if(generation===speechGeneration){readingIndex++;speakNext(generation);}};
     utterance.onerror=()=>{if(generation===speechGeneration){stopSpeech();apply();status('Voice reading could not start. Check your browser audio settings.');}};
     window.speechSynthesis.speak(utterance);
   }
-  function startSpeech(){if(!('speechSynthesis'in window)){state.speech=false;status('Voice reading is unavailable in this browser.');return;}stopSpeech();state.speech=true;readingIndex=0;sentences=[...main().querySelectorAll('h1,h2,h3,p,li')].filter(el=>el.getClientRects().length).map(el=>el.textContent.trim()).filter(Boolean);status('Reading the page. Click Text-to-Speech again to stop.');speakNext(speechGeneration);}
+  function startSpeech(){if(!('speechSynthesis'in window)){state.speech=false;status('Voice reading is unavailable in this browser.');return;}stopSpeech();state.speech=true;readingIndex=0;sentences=selectedReadingText?[selectedReadingText]:[];if(!sentences.length){status('Text-to-Speech is on. Select text or click the paragraph you want to hear.');return;}status(`Reading selected text: “${selectedReadingText.slice(0,100)}${selectedReadingText.length>100?'…':''}”`);speakNext(speechGeneration);}
+  function captureSelection(){const selection=window.getSelection();if(selection&&!selection.isCollapsed&&main().contains(selection.anchorNode)&&main().contains(selection.focusNode)){selectedReadingText=selection.toString().trim();return true;}return false;}
+  document.addEventListener('selectionchange',captureSelection);
+  document.addEventListener('pointerup',event=>{
+    const target=event.composedPath()[0];if(event.composedPath().includes(host)||!main().contains(target))return;
+    if(!captureSelection()){selectedReadingText='';if(target.closest?.('a,button,input,select,textarea,video,[contenteditable="true"]'))return;const block=target.closest?.('p,h1,h2,h3,h4,h5,h6,li,blockquote');if(block)selectedReadingText=block.innerText.trim();}
+    if(state.speech&&selectedReadingText){startSpeech();apply();}
+  });
+  document.addEventListener('keyup',event=>{if(event.key==='Shift'&&state.speech&&captureSelection()){startSpeech();apply();}});
   function stopVoice(){if(recognition){recognition.onend=null;recognition.stop();recognition=null;}state.voice=false;}
   function startVoice(){const API=window.SpeechRecognition||window.webkitSpeechRecognition;if(!API){state.voice=false;status('Voice commands are unavailable here. Try Chrome or Edge.');return;}recognition=new API();recognition.continuous=true;recognition.lang='en-US';recognition.onresult=e=>{const text=e.results[e.results.length-1][0].transcript.trim().toLowerCase();if(text.includes('scroll down'))window.scrollBy({top:450,behavior:'auto'});else if(text.includes('scroll up'))window.scrollBy({top:-450,behavior:'auto'});else if(text.includes('next'))move(1);else if(text.includes('previous'))move(-1);else if(text.includes('click')||text.includes('select'))focused()?.click();else if(text.includes('read page')){startSpeech();apply();}else if(text.includes('stop reading')){stopSpeech();apply();}else if(text.includes('close settings'))openPanel(false);else if(text.includes('open settings'))openPanel(true);else if(text.includes('reset settings'))reset();status(`Heard: “${text}”. Say next, previous, scroll down, scroll up, click, or read page.`);};recognition.onerror=e=>{stopVoice();apply();status(e.error==='not-allowed'?'Microphone permission was denied. Enable it in browser settings to use voice commands.':`Voice input stopped (${e.error}). You can turn it on again.`);};recognition.onend=()=>{recognition=null;state.voice=false;apply();status('Voice session ended. Click Voice Commands to start again.');};try{recognition.start();status('Allow the microphone, then say “scroll down”, “next”, “click”, or “read page”.');}catch{stopVoice();status('Could not start microphone input. Try again.');}}
   function clearScan(){if(scanned)scanned.removeAttribute('data-ae-scanned');scanned=null;scanIndex=-1;}
   function scan(){const items=controls();if(!items.length)return;if(scanned)scanned.removeAttribute('data-ae-scanned');scanIndex=(scanIndex+1)%items.length;scanned=items[scanIndex];scanned.setAttribute('data-ae-scanned','');scanned.focus();}
-  function reset(){stopSpeech();stopVoice();clearScan();latched.clear();Object.assign(state,defaults);apply();status('All settings have been reset.');}
+  function reset(){stopSpeech();stopVoice();clearScan();latched.clear();selectedReadingText='';sentences=[];Object.assign(state,defaults);apply();status('All settings have been reset.');}
   root.querySelector('.reset').addEventListener('click',reset);
   root.querySelectorAll('[data-setting]').forEach(el=>el.addEventListener('click',()=>{
     const id=el.dataset.setting;state[id]=!state[id];status(`${el.querySelector('strong').textContent} ${state[id]?'enabled':'disabled'}.`);

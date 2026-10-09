@@ -14,7 +14,7 @@ The widget is framework independent and its interface uses Shadow DOM to avoid i
 
 ## Settings
 
-1. Text-to-Speech reads headings and paragraphs in the main region. Browser speech synthesis is required.
+1. Text-to-Speech reads only selected text or a clicked paragraph/heading in the main region. Enable it, then select a passage or click a paragraph; you can also select text before enabling it. New selections interrupt the previous reading. It stays enabled after playback so another passage can be selected. Browser speech synthesis is required.
 2. Adjustable Reading Speed controls the voice from 0.75× to 2×.
 3. Text Alignment changes paragraphs, list items and block quotes.
 4. Simplified Text Mode uses authored plain-language alternatives: `<p data-simple="Plain text">Original content</p>`. It never invents or automatically rewrites website facts.
