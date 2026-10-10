@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Independent host page for AssistAccess alt text</title>
+  <style>
+    body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #172554; background: #f7faff; }
+    header, main, footer { max-width: 840px; margin: auto; padding: 1rem; }
+    header { border-bottom: 1px solid #cbd5e1; }
+    nav a { margin-right: 1rem; }
+    section { margin: 1.5rem 0; padding: 1rem; background: white; border: 1px solid #dbeafe; border-radius: 12px; }
+    img { max-width: 100%; height: auto; }
+    button { padding: .5rem .8rem; cursor: pointer; }
+  </style>
+  <script>
+    window.AssistAccessConfig = {
+      position: { corner: 'bottom-right', offsetX: 16, offsetY: 16 },
+      altText: {
+        enabled: true,
+        siteId: 'test',
+        endpoint: '/api/assistaccess/alt-text',
+        allowExternalProcessing: true,
+        disclosure: 'I allow this image and limited nearby text to be sent to the configured AI service for an alt-text suggestion.',
+        getToken: async () => {
+          const response = await fetch('/api/assistaccess/alt-text/test-token');
+          if (!response.ok) throw new Error('Test authorization unavailable');
+          return (await response.json()).token;
+        },
+        persistence: { enabled: true, canWrite: true, autoApply: localStorage.getItem('test-auto-apply') === '1' },
+      },
+    };
+  </script>
+  <script defer src="/embed/assistaccess.js"></script>
+</head>
+<body>
+  <header><h1>Independent customer host page</h1><nav aria-label="Main navigation"><a href="#images">Images</a><a href="#contact">Contact</a></nav></header>
+  <main id="images">
+    <p>This ordinary HTML page loads the built widget bundle through a script tag. It does not import React.</p>
+    <section><h2>Sales report</h2><figure>
+      <img id="informative" src="/test-host/images/chart.png" data-assistaccess-image-id="sales-chart-2026">
+      <figcaption>Quarterly sales increased from Q1 to Q4.</figcaption>
+    </figure></section>
+    <section><h2>Already described</h2><img id="existing" src="/test-host/images/chart.png" alt="Four blue bars rise from Q1 to Q4"></section>
+    <section><h2>Decorative mark</h2><img id="decorative" src="/test-host/images/decorative.png" alt=""></section>
+    <section><h2>Linked image</h2><a href="#contact"><img id="linked" src="/test-host/images/contact.png" data-assistaccess-image-id="contact-link-icon"></a></section>
+    <section><h2>Image with text</h2><img id="text-image" src="/test-host/images/text.png" data-assistaccess-image-id="hours-sign"></section>
+    <section><h2>Broken source</h2><img id="broken" src="/test-host/images/not-found.png" data-assistaccess-image-id="broken-image"></section>
+    <section><h2>Vector source</h2><img id="vector" src="/test-host/images/vector.svg" data-assistaccess-image-id="vector-logo"></section>
+    <section><h2>Dynamic content</h2><button id="add-image" type="button">Add image</button><div id="dynamic-container"></div></section>
+    <section id="contact"><h2>Contact form</h2><label>Name <input name="name"></label><button type="button">Send</button></section>
+  </main>
+  <div style="height:6000px" aria-hidden="true"></div>
+  <main id="deferred">
+    <section><h2>Deferred content</h2>
+      <p>This image is far below the fold and carries no alt attribute. It is not rendered
+        when the first scan runs, so it can only be reported after it finishes loading.</p>
+      <img id="lazy-image" src="/test-host/images/deferred.png" loading="lazy" data-assistaccess-image-id="deferred-badge">
+    </section>
+  </main>
+  <footer>Host content and links remain available while the widget is open.</footer>
+  <script>
+    document.getElementById('add-image').addEventListener('click', () => {
+      if (document.getElementById('dynamic-image')) return;
+      const image = document.createElement('img');
+      image.id = 'dynamic-image';
+      image.src = '/test-host/images/dynamic.png';
+      image.setAttribute('data-assistaccess-image-id', 'dynamic-badge');
+      document.getElementById('dynamic-container').append(image);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Host page with a cross-origin image</title>
+  <style>
+    body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #172554; background: #f7faff; }
+    header, main { max-width: 840px; margin: auto; padding: 1rem; }
+    section { margin: 1.5rem 0; padding: 1rem; background: white; border: 1px solid #dbeafe; border-radius: 12px; }
+    img { max-width: 100%; height: auto; }
+  </style>
+  <script>
+    // The image below is served from another origin that sends no CORS headers. The page
+    // can display it, but the widget cannot read its bytes, so it must report that limit
+    // instead of sending a guess to the AI service.
+    window.AssistAccessConfig = {
+      position: { corner: 'right-middle', offsetX: 8, offsetY: 16 },
+      altText: {
+        enabled: true,
+        siteId: 'test',
+        endpoint: '/api/assistaccess/alt-text',
+        allowExternalProcessing: true,
+        disclosure: 'I allow this image and limited nearby text to be sent to the configured AI service for an alt-text suggestion.',
+        getToken: async () => {
+          const response = await fetch('/api/assistaccess/alt-text/test-token');
+          if (!response.ok) throw new Error('Test authorization unavailable');
+          return (await response.json()).token;
+        },
+      },
+    };
+  </script>
+  <script defer src="/embed/assistaccess.js"></script>
+</head>
+<body>
+  <header><h1>Cross-origin image host page</h1></header>
+  <main>
+    <section><h2>Partner chart</h2>
+      <img id="cross-origin-image" src="http://127.0.0.1:8788/chart.png" data-assistaccess-image-id="partner-chart">
+    </section>
+  </main>
+</body>
+</html>

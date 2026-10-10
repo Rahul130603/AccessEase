@@ -1,0 +1,343 @@
+/*
+ * Demo site styles.
+ *
+ * Deliberately plain and confident — a normal marketing page with a blue brand colour,
+ * so the widget can be judged against realistic content: sticky positioning, cards,
+ * images, a table, forms and a footer. Nothing here styles the widget itself; that lives
+ * in src/accessibility/accessibility.css and is isolated inside its shadow root.
+ */
+
+:root {
+  --brand: #0b4fd8;
+  --brand-dark: #08348c;
+  --ink: #111726;
+  --muted: #5a6379;
+  --surface: #f4f6fb;
+  --line: #dde3ee;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+.wrap {
+  inline-size: min(68rem, 100% - 2.5rem);
+  margin-inline: auto;
+}
+
+.skip-link {
+  position: absolute;
+  inset-block-start: -100%;
+  inset-inline-start: 0.5rem;
+  z-index: 10;
+  padding: 0.6rem 1rem;
+  color: #ffffff;
+  background: var(--brand-dark);
+  border-radius: 0 0 6px 6px;
+}
+
+.skip-link:focus {
+  inset-block-start: 0;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.site-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 5;
+  background: #ffffff;
+  border-block-end: 1px solid var(--line);
+}
+
+.site-header .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-block: 0.75rem;
+}
+
+.logo {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.site-header nav ul {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-header a {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  padding-block: 0.35rem;
+  border-block-end: 2px solid transparent;
+}
+
+.site-header a:hover {
+  border-block-end-color: var(--brand);
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────────── */
+.hero {
+  padding-block: 3.5rem 2.5rem;
+  background: linear-gradient(180deg, var(--surface), #ffffff);
+  border-block-end: 1px solid var(--line);
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.hero h1 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.9rem, 4vw, 2.9rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  max-inline-size: 46ch;
+  margin: 0 0 1.5rem;
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+
+.hero-actions,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 44px;
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--brand);
+  border: 2px solid var(--brand);
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+}
+
+.button--ghost {
+  color: var(--brand);
+  background: transparent;
+}
+
+.button--danger {
+  color: #a01020;
+  background: transparent;
+  border-color: currentColor;
+}
+
+/* ── Flashing test banner ───────────────────────────────────────────────── */
+.promo {
+  padding-block: 2rem;
+  background: var(--surface);
+  border-block-end: 1px solid var(--line);
+}
+
+.promo h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+}
+
+.promo p {
+  max-inline-size: 60ch;
+  color: var(--muted);
+}
+
+@keyframes demo-flash {
+  0%,
+  100% {
+    color: #000000;
+    background-color: #ffffff;
+  }
+  50% {
+    color: #ffffff;
+    background-color: #000000;
+  }
+}
+
+.flash-demo {
+  padding: 1rem;
+  font-weight: 800;
+  text-align: center;
+  border: 2px solid var(--ink);
+  /* 150 ms cycle: about 6.7 flashes per second, above the 3/second threshold. */
+  animation: demo-flash 150ms steps(1, end) infinite;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+.cards,
+.pricing,
+.contact {
+  padding-block: 2.5rem;
+}
+
+.section-note {
+  max-inline-size: 62ch;
+  color: var(--muted);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  padding: 0 0 1rem;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.card img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  background: var(--surface);
+  border-block-end: 1px solid var(--line);
+}
+
+.card h3 {
+  margin: 0.9rem 1rem 0.35rem;
+  font-size: 1.05rem;
+}
+
+.card p {
+  margin: 0 1rem;
+  color: var(--muted);
+}
+
+/* ── Table ──────────────────────────────────────────────────────────────── */
+.pricing table {
+  inline-size: 100%;
+  margin-block-start: 1rem;
+  border-collapse: collapse;
+}
+
+.pricing caption {
+  margin-block-end: 0.5rem;
+  font-weight: 600;
+  text-align: start;
+}
+
+.pricing th,
+.pricing td {
+  padding: 0.6rem 0.75rem;
+  text-align: start;
+  border-block-end: 1px solid var(--line);
+}
+
+.pricing thead th {
+  background: var(--surface);
+}
+
+/* ── Forms ──────────────────────────────────────────────────────────────── */
+.contact .wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.panel-form {
+  padding: 1.25rem;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.panel-form h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.panel-form > p:first-of-type {
+  margin-block-start: 0;
+  color: var(--muted);
+}
+
+.panel-form .a11ytb-form__control {
+  border-color: var(--line);
+  border-radius: 8px;
+}
+
+.panel-form .actions {
+  margin-block-start: 0.75rem;
+}
+
+.status {
+  margin: 0.75rem 0 0;
+  font-weight: 600;
+  color: var(--brand-dark);
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+.site-footer {
+  padding-block: 2rem;
+  color: var(--muted);
+  background: var(--surface);
+  border-block-start: 1px solid var(--line);
+}
+
+.site-footer p {
+  margin: 0 0 0.35rem;
+}
+
+.site-footer .small {
+  font-size: 0.9rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 40rem) {
+  .site-header nav ul {
+    gap: 0.75rem;
+  }
+
+  .hero {
+    padding-block: 2.25rem 1.75rem;
+  }
+}
