@@ -1,3 +1,20 @@
+# Accessibility Widgets
+
+This branch includes two independent accessibility widget projects:
+
+- **Visual Accessibility Widget (React + Vite):** the new project is in [`visual-accessibility-widget/`](visual-accessibility-widget/). It includes a live website demo, a standalone embeddable SDK, text sizing, appearance settings, color vision assistance and reading tools. See its [English setup and integration guide](visual-accessibility-widget/README.md).
+- **AccessEase:** the existing static demo and Docker setup remain in the repository root. Its instructions are retained below.
+
+To start the Visual Accessibility Widget:
+
+```sh
+cd visual-accessibility-widget
+npm install
+npm run dev
+```
+
+---
+
 # AccessEase
 
 A sample learning website with a reusable accessibility widget offering 13 settings. Open `dist/index.html` through a local static HTTP server. The floating button stays in the bottom right corner.

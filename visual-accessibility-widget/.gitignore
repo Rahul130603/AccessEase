@@ -1,0 +1,19 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.log
+public/accessibility-widget.js
+.playwright-browsers/
+artifacts/
+*.zip
+.env
+.env.*
+!.env.example
+*.bak
+.tmp/
+.npm-cache/
+# Local screenshots and client-specific diagnostics are not project source.
+scripts/capture-*.mjs
+scripts/probe-news-layout.mjs
+scripts/verify-news-integration.mjs
