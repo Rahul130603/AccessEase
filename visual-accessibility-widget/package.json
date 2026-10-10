@@ -1,0 +1,29 @@
+{
+  "name": "universal-accessibility-widget",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "npm run build:sdk -- --outDir public",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build && npm run build:sdk",
+    "build:sdk": "vite build --config vite.sdk.config.js",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check": "npm run test && npm run build && npm run test:e2e"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.51.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.0.0",
+    "vite": "^6.1.0",
+    "vitest": "^5.0.3"
+  }
+}
