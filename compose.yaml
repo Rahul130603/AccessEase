@@ -1,0 +1,10 @@
+name: accessease
+
+services:
+  web:
+    build:
+      context: .
+    image: accessease:local
+    ports:
+      - "127.0.0.1:1434:80"
+    restart: unless-stopped

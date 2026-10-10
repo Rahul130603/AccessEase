@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Voice click integration check</title>
+<style>body{font:16px Arial;padding:24px;color:#092644}input,button{padding:10px;margin:6px 0}main{max-width:500px}a{display:block;margin:20px 0}</style>
+<h1>Voice click integration check</h1><p>Simulated recognition results; real widget and DOM actions.</p>
+<label for="command">Test transcript</label><input id="command" value="click keyboard navigation"><button id="send">Send transcript</button>
+<main><a href="#lesson">Start learning</a><a href="#first">Explore this course</a><a href="#second">Explore this course</a>
+<section id="lesson"><h2>First lesson</h2><p>Sample text for keyboard navigation.</p></section></main>
+<script>
+window.SpeechRecognition=class{
+  start(){window.testVoice=this;setTimeout(()=>this.onstart?.(),0);}
+  abort(){if(window.testVoice===this)window.testVoice=null;}
+};
+document.getElementById('send').onclick=()=>{
+  const result=[{transcript:document.getElementById('command').value}];result.isFinal=true;
+  window.testVoice?.onresult?.({resultIndex:0,results:[result]});
+};
+</script><script src="../dist/widget.js?v=20261009-voice-click" defer></script></html>
