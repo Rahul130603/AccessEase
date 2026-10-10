@@ -1,8 +1,9 @@
 # Accessibility Widgets
 
-This branch includes two independent accessibility widget projects:
+This repository includes three independent accessibility widget projects:
 
 - **Visual Accessibility Widget (React + Vite):** the new project is in [`visual-accessibility-widget/`](visual-accessibility-widget/). It includes a live website demo, a standalone embeddable SDK, text sizing, appearance settings, color vision assistance and reading tools. See its [English setup and integration guide](visual-accessibility-widget/README.md).
+- **Sudhin Standalone Widget:** the standalone script is `accessibility-widget.js`, with its demo in `demo.html`. See [Sudhin setup and feature guide](SUDHIN.md) and [standalone distribution](standalone-widget/README.md).
 - **AccessEase:** the existing static demo and Docker setup remain in the repository root. Its instructions are retained below.
 
 To start the Visual Accessibility Widget:
