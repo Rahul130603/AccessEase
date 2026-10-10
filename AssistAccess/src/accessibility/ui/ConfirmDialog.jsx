@@ -74,7 +74,7 @@ export default function ConfirmDialog({
     const options = optionsRef.current;
     const explicit = options.returnFocusTo && options.returnFocusTo.current;
     invokerRef.current =
-      explicit || (typeof document !== 'undefined' ? document.activeElement : null);
+      explicit || dialog.getRootNode()?.activeElement || (typeof document !== 'undefined' ? document.activeElement : null);
 
     if (native) {
       if (!dialog.open) dialog.showModal();

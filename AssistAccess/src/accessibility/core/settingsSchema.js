@@ -75,7 +75,7 @@ export function createDefaultSettings() {
       motionStrategy: 'instant',
       pauseAutoMedia: false,
       flashGuard: {
-        enabled: true,
+        enabled: false,
         autoDetect: true,
         action: 'pause',
         /** Stable element keys the user has allowed on this page. */

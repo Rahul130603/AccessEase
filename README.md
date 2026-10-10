@@ -1,6 +1,56 @@
-# Accessibility Widgets
+# AccessEase — unified team widget
 
-This repository includes three independent accessibility widget projects:
+The Docker demo now combines all four developers' modules in **one launcher and one searchable panel with 45 controls**. Reset, preference import/export and saved profiles cover the combined settings. The original projects remain available for development; the demo does not load their separate launchers.
+
+## Build and run
+
+```sh
+npm ci
+npm run build
+npm test
+docker compose up -d --build
+```
+
+Open http://localhost:1434/. The committed `dist` also supports `start-server.bat` and `start-docker.bat` without installing Node. After editing module source, rebuild with `npm run build` before rebuilding Docker.
+
+## Team integration
+
+- Rahul: the original 13 reading, keyboard, voice and caption controls in `dist/widget.js`.
+- Praveen: 12 text size, theme, color vision, spacing, font and reading tool controls, reusing the engines in `visual-accessibility-widget/src/`.
+- Sudhin: transcripts, extractive summaries, progress, distraction reduction, guided headings, visual notifications and a real host callback for session extension.
+- Navin: 11 visual, motion, page audit, announcement and form integration panels from `AssistAccess/src/accessibility/`. Its reset, preferences and profiles are replaced by the shared controls.
+- Shared: import/export and profiles in `integration/index.jsx`. Vite builds the React dependency and reused modules into `dist/team-features.js`.
+
+Copy `widget.js`, `team-features.js`, `accessibility-badge.png` and `OpenDyslexic-OFL.txt` from `dist` into the same assets folder. Load only `widget.js`; it loads the team bundle relative to its own URL:
+
+```html
+<script src="/assets/widget.js" defer></script>
+```
+
+Optional plain-language replacements can be supplied before the script through `window.AccessEaseSimpleText`. Captions/transcripts require supplied tracks or transcripts; this widget does not generate missing audio transcriptions. Summaries extract existing sentences. Audits report markup problems; authentication, form validation and confirmation must be integrated into the host application's actions using the components described in `AssistAccess/INTEGRATION-FORMS.md`.
+
+Session extension requires an application callback which actually extends its session on the server. The widget only reports success when the application confirms it:
+
+```js
+window.AccessEaseConfig = {
+  extendSession: async ({ minutes }) => {
+    const response = await fetch('/api/session/extend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ minutes })
+    });
+    return response.ok && (await response.json()).extended === true;
+  }
+};
+```
+
+Configure the endpoint and its authentication/CSRF protection in your application. Nothing extends a session when this callback is absent. Optional AssistAccess configuration can be passed as `window.AccessEaseConfig.assist`; AI alt-text services are not configured by default. Cross-origin frames and closed shadow roots remain outside the widget's reach.
+
+Automated coverage: 17 simulated voice checks, 8 shortcut checks and 4 unified integration/helper checks. Microphone recognition still depends on the user's browser and permission.
+
+## Original project guides
+
+The repository retains the original projects alongside the unified build:
 
 - **Visual Accessibility Widget (React + Vite):** the new project is in [`visual-accessibility-widget/`](visual-accessibility-widget/). It includes a live website demo, a standalone embeddable SDK, text sizing, appearance settings, color vision assistance and reading tools. See its [English setup and integration guide](visual-accessibility-widget/README.md).
 - **Sudhin Standalone Widget:** the standalone script is `accessibility-widget.js`, with its demo in `demo.html`. See [Sudhin setup and feature guide](SUDHIN.md) and [standalone distribution](standalone-widget/README.md).
@@ -45,7 +95,7 @@ The first command displays server logs; the second stops and removes this projec
 
 ## Integrating the widget
 
-Copy `dist/widget.js` and `dist/accessibility-badge.png` into the same website assets folder and add this before `</body>`:
+For the unified build, copy the four assets listed above into the same website folder and add this before `</body>`:
 
 ```html
 <script src="/assets/widget.js" defer></script>
@@ -53,7 +103,7 @@ Copy `dist/widget.js` and `dist/accessibility-badge.png` into the same website a
 
 The widget is framework independent and its interface uses Shadow DOM to avoid inheriting website styles. It modifies paragraphs and controls on the same page, including newly added content. It does not need account, backend or administrator access. Cross-origin iframes and other components' closed shadow roots are outside its reach. Include its script in each page or the shared app layout. Your site's content security policy must allow the script and injected styles.
 
-The accessibility launcher opens one grid containing all 13 settings. Desktop uses three columns; narrower screens use two. Reading speed and text alignment live within the same grid as the toggles. Active toggles have a checkmark, changed dropdowns have an accent border, and the header displays the active count. The panel scrolls when the viewport is too short while keeping its header and Reset controls available.
+The accessibility launcher opens one searchable grid containing 45 controls. Additional options expand within the grid. Active toggles have a checkmark, adjusted cards have an accent border, and the header displays the number of changed settings. The panel scrolls while keeping its header and shared Reset control available.
 
 ## Settings
 

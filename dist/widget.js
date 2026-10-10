@@ -11,6 +11,9 @@
   state.speech = state.voice = state.switches = false;
   const host = document.createElement('div'); host.id = 'accessease-widget'; document.body.prepend(host);
   const root = host.attachShadow({mode:'open'});
+  host.setAttribute('data-uaw-ignore','');
+  host.setAttribute('data-a11ytb-host','');
+  let teamExtension = null;
   const badgeURL = new URL('accessibility-badge.png', document.currentScript.src).href;
   const symbol = `<img src="${badgeURL}" alt="" aria-hidden="true" class="badge">`;
   root.innerHTML = `<style>
@@ -80,12 +83,12 @@
   launcher.addEventListener('click',()=>openPanel(panel.hidden));root.querySelector('.close').addEventListener('click',()=>openPanel(false));
   function goMain(){openPanel(false);const el=main();if(!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});el.scrollIntoView({behavior:'instant',block:'start'});}
   root.querySelector('.skip').addEventListener('click',goMain);
-  function controls(){return [...document.querySelectorAll('a[href],button,input,select,textarea,summary,video[controls],audio[controls],[tabindex]'),...root.querySelectorAll('button,select')].filter(el=>el!==host && !el.disabled && el.tabIndex>=0 && !el.closest('[hidden],[inert],[aria-hidden="true"],svg,picture,img,.course-art,[role="img"]') && el.getClientRects().length && getComputedStyle(el).visibility!=='hidden');}
+  function controls(){const selector='a[href],button,input,select,textarea,summary,video[controls],audio[controls],[tabindex]';const modal=root.querySelector('dialog[open]')||document.querySelector('dialog[open]');return [...document.querySelectorAll(selector),...root.querySelectorAll(selector)].filter(el=>el!==host && (!modal||modal.contains(el)) && !el.disabled && el.tabIndex>=0 && !el.closest('[hidden],[inert],[aria-hidden="true"],svg,picture,img,.course-art,[role="img"]') && el.getClientRects().length && getComputedStyle(el).visibility!=='hidden');}
   function focused(){return root.activeElement||document.activeElement;}
   function move(direction){const items=controls();if(!items.length)return;const current=items.indexOf(focused());const index=current<0?(direction>0?0:items.length-1):(current+direction+items.length)%items.length;items[index].focus();}
   function updateCaptions(){let tracks=0;document.querySelectorAll('video').forEach(v=>{for(const track of v.textTracks){if(['captions','subtitles'].includes(track.kind)){track.mode=state.captions?'showing':'disabled';tracks++;}}});return tracks;}
   function apply(){
-    focusStyle.textContent=state.focus?'button:focus-visible,select:focus-visible{outline:4px solid #2563eb!important;outline-offset:5px!important;box-shadow:0 0 0 8px #bfdbfe!important}':'';
+    focusStyle.textContent=state.focus?'button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible,a:focus-visible{outline:4px solid #2563eb!important;outline-offset:5px!important;box-shadow:0 0 0 8px #bfdbfe!important}':'';
     targetStyle.textContent=state.targets?'button,select{min-height:45px!important;min-width:45px!important}':'';
     if(state.keyboard||state.focus){
       const targets=new Set();
@@ -131,8 +134,9 @@
     root.querySelector('#rate').closest('.select-row').dataset.active=String(state.rate!==1);
     root.querySelector('#align').closest('.select-row').dataset.active=String(state.align!=='original');
     const count=Object.entries(state).filter(([k,v])=>k==='rate'?v!==1:k==='align'?v!=='original':v===true).length;
-    root.querySelector('.count').textContent=`${count} active`;
+    root.querySelector('.count').textContent=`${count+(teamExtension?.activeCount()||0)} active`;
     updateCaptions();persist();
+    host.dispatchEvent(new CustomEvent('accessease:change',{detail:{...state}}));
   }
   function stopSpeech(){speechGeneration++;if('speechSynthesis'in window)window.speechSynthesis.cancel();state.speech=false;}
   function speakNext(generation){
@@ -240,7 +244,7 @@
   }
   function clearScan(){if(scanned)scanned.removeAttribute('data-ae-scanned');scanned=null;scanIndex=-1;}
   function scan(){const items=controls();if(!items.length)return;if(scanned)scanned.removeAttribute('data-ae-scanned');scanIndex=(scanIndex+1)%items.length;scanned=items[scanIndex];scanned.setAttribute('data-ae-scanned','');scanned.focus();}
-  function reset(){stopSpeech();stopVoice();clearScan();latched.clear();selectedReadingText='';sentences=[];Object.assign(state,defaults);apply();status('All settings have been reset.');}
+  function reset(){stopSpeech();stopVoice();clearScan();latched.clear();selectedReadingText='';sentences=[];Object.assign(state,defaults);teamExtension?.reset();apply();status('All settings have been reset.');}
   root.querySelector('.reset').addEventListener('click',reset);
   root.querySelectorAll('[data-setting]').forEach(el=>el.addEventListener('click',()=>{
     const id=el.dataset.setting;state[id]=!state[id];status(`${el.querySelector('strong').textContent} ${state[id]?'enabled':'disabled'}.`);
@@ -259,6 +263,8 @@
   document.addEventListener('keydown',e=>{
     const target=e.composedPath()[0];const typing=target.closest?.('input,textarea,select,video,audio,[contenteditable="true"]');
     const shortcutA=e.code==='KeyA'||e.key.toLowerCase()==='a';
+    // The modal owns Escape and focus while a confirmation is open.
+    if(e.key==='Escape'&&(root.querySelector('dialog[open]')||document.querySelector('dialog[open]')))return;
     if(e.key==='Escape'&&!panel.hidden){e.preventDefault();latched.clear();openPanel(false);return;}
     if(e.ctrlKey&&e.altKey&&shortcutA){e.preventDefault();latched.clear();if(!e.repeat)openPanel(panel.hidden);return;}
     if(state.sticky){
@@ -282,5 +288,26 @@
   document.addEventListener('loadedmetadata',updateCaptions,true);
   const observer=new MutationObserver(records=>{if(records.some(record=>[...record.addedNodes].some(node=>node.nodeType===1 && node!==host))){apply();}});observer.observe(document.body,{childList:true,subtree:true});
   window.addEventListener('pagehide',()=>{stopSpeech();stopVoice();});
+  window.AccessEase = {
+    host, root, open:()=>openPanel(true), close:()=>openPanel(false), status,
+    getSettings:()=>({...state}), reset,
+    setSettings(patch={}) {
+      // Imported preferences never start a microphone, speech playback or scanning.
+      for(const name of Object.keys(defaults)) {
+        if(['speech','voice','switches'].includes(name)) continue;
+        if(typeof patch[name]===typeof defaults[name]) state[name]=patch[name];
+      }
+      if(![.75,1,1.25,1.5,2].includes(state.rate))state.rate=1;
+      if(!['original','left','center','right','justify'].includes(state.align))state.align='original';
+      apply();
+    },
+    registerExtension(extension){teamExtension=extension;apply();},
+    refresh:apply,
+  };
   apply();
+  // Load the shared feature bundle relative to this script on any host website.
+  const teamScript=document.createElement('script');
+  teamScript.src=new URL('team-features.js?v=20261010-unified',document.currentScript.src).href;
+  teamScript.onerror=()=>status('Additional settings could not load. Check the widget asset files.');
+  document.head.append(teamScript);
 })();
