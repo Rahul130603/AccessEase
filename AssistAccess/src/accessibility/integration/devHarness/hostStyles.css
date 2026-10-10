@@ -1,0 +1,236 @@
+/*
+ * Dev harness stylesheet — deliberately hostile.
+ *
+ * This file simulates a team project whose global CSS is aggressive: element
+ * selectors, a reset, a `[hidden]` override and strong button styling. It exists to
+ * prove that the accessibility toolbar's shadow DOM is isolated from the host app
+ * and that the host app is not restyled by the toolbar.
+ *
+ * Nothing in this file ships with the module.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+body {
+  margin: 0;
+  background: #fbfbfd;
+  color: #1b1b1f;
+}
+
+/* Aggressive global rules a teammate might legitimately write. */
+button {
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  color: #1b3d0f;
+  background: #e6ffd6;
+  border: 3px dashed #2b7a0b;
+  border-radius: 2px;
+}
+
+/* A hostile rule: many implementations hide content with the `hidden` attribute,
+   and this defeats them. The accessibility pattern must survive it. */
+[hidden] {
+  display: block;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+}
+
+.harness-app {
+  max-inline-size: 62rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 8rem;
+}
+
+.harness-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 5;
+  padding: 0.75rem 1rem;
+  color: #ffffff;
+  background: #22303f;
+  border-block-end: 2px solid #0b4fd8;
+}
+
+.harness-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+
+.harness-section {
+  margin-block: 1.5rem;
+  padding: 1rem;
+  background: #ffffff;
+  border: 1px solid #ccd2dd;
+  border-radius: 6px;
+}
+
+.harness-note {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  background: #fff8e1;
+  border-inline-start: 4px solid #b8860b;
+}
+
+/* Fixed element inside the app tree: filters must not break it in the default
+   "whole page" mode. Switching the panel to "Content area only" is expected to
+   break it — that is the documented trade-off. */
+.harness-fixed-banner {
+  position: fixed;
+  inset-block-end: 0;
+  inset-inline: 0;
+  z-index: 4;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: #ffffff;
+  background: #4a1d7a;
+}
+
+.harness-teammate-toolbar {
+  position: fixed;
+  inset-block-start: 4.5rem;
+  inset-inline-end: 1rem;
+  z-index: 6;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem;
+  background: #ffffff;
+  border: 1px solid #ccd2dd;
+  border-radius: 6px;
+}
+
+/* ── Animation fixtures ───────────────────────────────────────────────────
+   Cycle times are chosen so the estimate is easy to verify by hand:
+     150ms cycle → ~6.7 flashes/second  (above the 3/second threshold)
+     120ms opacity cycle → ~8.3/second (above the threshold, low confidence)
+     800ms cycle → ~1.3/second (below the threshold, must NOT be flagged)
+   ──────────────────────────────────────────────────────────────────────── */
+
+@keyframes harness-hazard {
+  0%,
+  100% {
+    color: #000000;
+    background-color: #ffffff;
+  }
+  50% {
+    color: #ffffff;
+    background-color: #000000;
+  }
+}
+
+@keyframes harness-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.04;
+  }
+}
+
+@keyframes harness-slow-flash {
+  0%,
+  100% {
+    background-color: #ffffff;
+  }
+  50% {
+    background-color: #1a1a1a;
+  }
+}
+
+@keyframes harness-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes harness-safe-motion {
+  from {
+    transform: scale(1);
+    background-color: #cfe3ff;
+  }
+  to {
+    transform: scale(1.05);
+    background-color: #9dc2ff;
+  }
+}
+
+.harness-hazard {
+  animation: harness-hazard 150ms steps(1, end) infinite;
+}
+
+.harness-blink {
+  animation: harness-blink 120ms linear infinite;
+}
+
+.harness-slow-flash {
+  animation: harness-slow-flash 800ms ease-in-out infinite;
+}
+
+.harness-spinner {
+  inline-size: 64px;
+  block-size: 64px;
+  border: 8px solid #c9d3e0;
+  border-block-start-color: #0b4fd8;
+  border-radius: 50%;
+  animation: harness-spin 900ms linear infinite;
+}
+
+.harness-safe-animation {
+  min-block-size: 120px;
+  display: grid;
+  place-items: center;
+  color: #12335e;
+  font-weight: 700;
+  animation: harness-safe-motion 900ms ease-in-out infinite alternate;
+}
+
+.harness-marquee {
+  inline-size: 100%;
+  padding: 0.5rem;
+  color: #ffffff;
+  background: #22303f;
+}
+
+.harness-canvas,
+.harness-video,
+.harness-image {
+  display: block;
+  margin-block-start: 0.5rem;
+  border: 1px solid #99a3b3;
+  background: #000000;
+}
+
+.harness-filler {
+  block-size: 60vh;
+  display: grid;
+  place-items: center;
+  color: #6b7280;
+  border: 2px dashed #ccd2dd;
+  border-radius: 6px;
+}
+
+/* Text that looks like a heading but is not one: the audit reports it as a
+   review item, never as a defect. */
+.harness-fake-heading {
+  margin-block: 1rem 0.5rem;
+  font-family: system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.harness-inline-main {
+  margin-block-start: 0.75rem;
+  padding: 0.5rem;
+  border: 1px dashed #ccd2dd;
+}

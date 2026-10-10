@@ -1,0 +1,23 @@
+# Dependencies and build output
+node_modules/
+dist/
+.npm-cache/
+
+# Layout audit artefacts (screenshots + report.json)
+tools/layout-audit-out/
+
+# Logs and local environment
+*.log
+.env
+.env.local
+
+# Local alt-text correction database and its journals
+alt-corrections.sqlite
+alt-corrections.sqlite-journal
+alt-corrections.sqlite-wal
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

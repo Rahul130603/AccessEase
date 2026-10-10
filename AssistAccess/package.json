@@ -1,0 +1,30 @@
+{
+  "name": "assistaccess-accessibility-toolbar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "React accessibility toolbar (14 features) with a demo site and a dev harness.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && vite build --config vite.embed.config.js",
+    "alt-api": "node server/start.mjs",
+    "test:alt": "node --test \"server/tests/*.test.mjs\"",
+    "test:alt:live": "node --test server/tests/liveProvider.test.mjs",
+    "test:browser:alt": "node test-host/browser-test.mjs",
+    "test:browser:alt:edges": "node test-host/browser-alt-edges.mjs",
+    "preview": "vite preview --port 4173",
+    "audit:layout": "node tools/layout-audit.mjs",
+    "check": "node src/accessibility/integration/selfTest/moduleCheck.mjs && node src/accessibility/integration/selfTest/integrationReview.mjs && node src/accessibility/integration/selfTest/settingsSelfTest.mjs",
+    "sync:styles": "node src/accessibility/integration/selfTest/syncWidgetStyles.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
+    "axe-core": "^4.14.0",
+    "puppeteer-core": "^25.13.0",
+    "vite": "^5.4.0"
+  }
+}

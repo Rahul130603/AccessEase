@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Host page whose site has no AI provider</title>
+  <style>
+    body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #172554; background: #f7faff; }
+    header, main { max-width: 840px; margin: auto; padding: 1rem; }
+    section { margin: 1.5rem 0; padding: 1rem; background: white; border: 1px solid #dbeafe; border-radius: 12px; }
+    img { max-width: 100%; height: auto; }
+  </style>
+  <script>
+    // The widget is configured and the browser is authorized, but this site is not
+    // allowed to use the AI provider on the server. The request must fail loudly
+    // instead of answering with a fabricated description.
+    window.AssistAccessConfig = {
+      position: { corner: 'right-middle', offsetX: 8, offsetY: 16 },
+      altText: {
+        enabled: true,
+        siteId: 'noprovider',
+        endpoint: '/api/assistaccess/alt-text',
+        allowExternalProcessing: true,
+        disclosure: 'I allow this image and limited nearby text to be sent to the configured AI service for an alt-text suggestion.',
+        getToken: async () => {
+          const response = await fetch('/api/assistaccess/alt-text/test-token?siteId=noprovider');
+          if (!response.ok) throw new Error('Test authorization unavailable');
+          return (await response.json()).token;
+        },
+      },
+    };
+  </script>
+  <script defer src="/embed/assistaccess.js"></script>
+</head>
+<body>
+  <header><h1>Site without an AI provider</h1></header>
+  <main>
+    <section><h2>Sales report</h2>
+      <img id="providerless-image" src="/test-host/images/chart.png">
+    </section>
+  </main>
+</body>
+</html>

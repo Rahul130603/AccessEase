@@ -18,6 +18,8 @@ npm run dev
 
 # AccessEase
 
+The separately developed React accessibility toolbar is in [AssistAccess/](AssistAccess/README.md), with its [project audit](AssistAccess/PROJECT-AUDIT.md). The instructions below describe the original static AccessEase demo served by this repository's Docker setup.
+
 A sample learning website with a reusable accessibility widget offering 13 settings. Open `dist/index.html` through a local static HTTP server. The floating button stays in the bottom right corner.
 
 On Windows, double-click `start-server.bat` to serve this demo at `http://localhost:1434/`. Keep the terminal window open while using the website; Ctrl+C stops the server. The launcher locates the website relative to itself and uses Python. If port 1434 is already occupied, it opens the existing local URL instead of starting another server.
