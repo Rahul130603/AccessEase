@@ -7,7 +7,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   fontScale: 1, theme: 'default', grayscale: false, colorVisionMode: 'default',
   spacingPreset: 'default', letterSpacing: 0, wordSpacing: 0, lineHeight: 1.5, paragraphSpacing: 0,
   customSpacingOverrides: Object.freeze([]),
-  magnifier: false, zoomLevel: 2, highlightLinks: false, dyslexiaFont: false,
+  magnifier: false, zoomLevel: 1.5, highlightLinks: false, dyslexiaFont: false,
   readingGuide: false, guideHeight: 8, readingMask: false, maskHeight: 120,
 });
 
@@ -18,7 +18,7 @@ export const SPACING_PRESETS = Object.freeze({
 });
 
 const ranges = { fontScale: [MIN_FONT_SCALE, MAX_FONT_SCALE], letterSpacing: [0, 0.2], wordSpacing: [0, 0.4], lineHeight: [1.2, 2.5], paragraphSpacing: [0, 3], guideHeight: [2, 24], maskHeight: [60, 540] };
-const enums = { theme: ['default', 'light', 'dark', 'contrast'], colorVisionMode: COLOR_MODES.map(mode => mode.id), spacingPreset: ['default', 'comfortable', 'wide', 'custom'], zoomLevel: [1.5, 2, 3] };
+const enums = { theme: ['default', 'light', 'dark', 'contrast'], colorVisionMode: COLOR_MODES.map(mode => mode.id), spacingPreset: ['default', 'comfortable', 'wide', 'custom'], zoomLevel: [1.5] };
 
 export function normalizeSettings(input = {}) {
   const settings = { ...DEFAULT_SETTINGS };

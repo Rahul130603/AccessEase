@@ -166,7 +166,7 @@ function ImageCard({ image, finding, audit, config, announce, session }) {
   );
 }
 
-export default function AltTextPanel() {
+export default function AltTextPanel({compact=false}) {
   const { strings, config, actions } = useA11ySettings();
   const audit = useAudit();
   const announce = actions.announce;
@@ -195,7 +195,7 @@ export default function AltTextPanel() {
 
   return (
     <div className="a11ytb-feature">
-      <p className="a11ytb-hint">{copy.intro}</p>
+      {!compact && <p className="a11ytb-hint">{copy.intro}</p>}
 
       <ul className="a11ytb-uninspectable">
         <li>
@@ -212,15 +212,15 @@ export default function AltTextPanel() {
         </li>
       </ul>
 
-      <p className="a11ytb-note a11ytb-note--warning">{copy.qualityCaveat}</p>
-      <p className="a11ytb-note">AI descriptions are suggestions for review. Applying changes this page’s DOM only; saving requires the site’s authorized backend.</p>
+      {!compact && <><p className="a11ytb-note a11ytb-note--warning">{copy.qualityCaveat}</p>
+      <p className="a11ytb-note">AI descriptions are suggestions for review. Applying changes this page’s DOM only; saving requires the site’s authorized backend.</p></>}
 
       <h4 className="a11ytb-note__heading">Images to review on this page</h4>
       {cards.length ? cards.map(({ image, finding }) => <ImageCard key={cardKey(image)}
         image={image} finding={finding} audit={audit} config={config.altText} announce={announce} session={session} />) :
         <p className="a11ytb-hint">No missing or suspicious image alt attributes detected in the scanned page. Existing descriptions still need human review.</p>}
 
-      <h4 className="a11ytb-note__heading">{copy.examplesHeading}</h4>
+      {!compact&&<><h4 className="a11ytb-note__heading">{copy.examplesHeading}</h4>
       <div className="a11ytb-example-grid">
         <figure className="a11ytb-example">
           <img
@@ -263,9 +263,10 @@ export default function AltTextPanel() {
       <pre className="a11ytb-code">
         <code>{copy.componentCode}</code>
       </pre>
+      </>}
 
       <h4 className="a11ytb-note__heading">{copy.fixHeading}</h4>
-      <FindingList findings={findings} emptyMessage={strings.audit.detectedEmpty} />
+      <FindingList compact={compact} findings={findings} emptyMessage={strings.audit.detectedEmpty} />
 
       <div className="a11ytb-button-row">
         <button

@@ -44,8 +44,27 @@ export function createMotionApplier() {
   let scopeElement = null;
   let signature = null;
   let recheckTimer = null;
+  let mediaObserver = null;
+  let mediaWatchRoot = null;
   /** Latest applied configuration, read by the periodic re-check. */
-  let latest = { root: null, strategy: 'instant', pauseAutoMedia: false };
+  let latest = { root: null, strategy: 'instant', pauseAutoMedia: false, pauseMotion: false };
+
+  function onMediaPlay(event) {
+    const media=event.target;
+    if(!latest.pauseAutoMedia||!latest.root||!media?.matches?.(AUTOPLAY_MEDIA_SELECTOR)||!isInScope(media,latest.root)||isOwnedByToolbar(media))return;
+    pauseAutoplayingMedia(latest.root);
+  }
+  function stopMediaWatch() {
+    mediaObserver?.disconnect();mediaObserver=null;mediaWatchRoot=null;
+    document.removeEventListener('play',onMediaPlay,true);
+  }
+  function watchMedia(root) {
+    if(mediaWatchRoot===root)return;
+    stopMediaWatch();mediaWatchRoot=root;
+    document.addEventListener('play',onMediaPlay,true);
+    mediaObserver=new MutationObserver(()=>{if(latest.pauseAutoMedia)pauseAutoplayingMedia(root);});
+    mediaObserver.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['autoplay','src']});
+  }
 
   function resumeAnimations() {
     pausedAnimations.forEach((previousState, animation) => {
@@ -136,7 +155,8 @@ export function createMotionApplier() {
     }
     resumeAnimations();
     releaseMedia();
-    latest = { root: null, strategy: 'instant', pauseAutoMedia: false };
+    stopMediaWatch();
+    latest = { root: null, strategy: 'instant', pauseAutoMedia: false, pauseMotion: false };
     signature = null;
   }
 
@@ -157,9 +177,10 @@ export function createMotionApplier() {
 
     const pauseAll = settings.motion.pauseAnimations === true;
     const reduce = effectiveReducedMotion === true;
+    const pauseMedia = settings.motion.pauseAutoMedia === true;
 
-    if (!pauseAll && !reduce) {
-      if (signature !== null || scopeElement !== null) teardown();
+    if (!pauseAll && !reduce && !pauseMedia) {
+      teardown();
       return;
     }
 
@@ -170,7 +191,7 @@ export function createMotionApplier() {
     });
     if (!root) return;
 
-    if (scopeElement !== root) {
+    if ((pauseAll || reduce) && scopeElement !== root) {
       if (scopeElement) unmarkAttribute(scopeElement, DATA_ATTRS.MOTION_SCOPE);
       scopeElement = root;
       markAttribute(scopeElement, DATA_ATTRS.MOTION_SCOPE, '1');
@@ -178,22 +199,25 @@ export function createMotionApplier() {
 
     const strategy = pauseAll ? 'pause' : settings.motion.motionStrategy === 'pause' ? 'pause' : 'instant';
     const nextSignature = `${strategy}|${pauseAll ? 'pauseAll' : 'reduce'}`;
-    if (signature !== nextSignature) {
+    if (!pauseAll && !reduce) {
+      setStyleText(STYLE_IDS.MOTION,'');
+      if(scopeElement)unmarkAttribute(scopeElement,DATA_ATTRS.MOTION_SCOPE);
+      scopeElement=null;signature=null;resumeAnimations();
+    } else if (signature !== nextSignature) {
       setStyleText(STYLE_IDS.MOTION, buildMotionOverrideCss({ strategy, pauseAll }));
       signature = nextSignature;
     }
 
-    pauseRunningAnimations(root, strategy);
+    if(pauseAll || reduce)pauseRunningAnimations(root, strategy);
 
-    if (settings.motion.pauseAutoMedia) pauseAutoplayingMedia(root);
-    else releaseMedia();
-
-    latest = { root, strategy, pauseAutoMedia: settings.motion.pauseAutoMedia === true };
+    latest = { root, strategy, pauseAutoMedia: pauseMedia, pauseMotion: pauseAll || reduce };
+    if (pauseMedia) {watchMedia(root);pauseAutoplayingMedia(root);}
+    else {stopMediaWatch();releaseMedia();}
 
     if (recheckTimer === null) {
       recheckTimer = setInterval(() => {
         if (typeof document === 'undefined' || document.hidden || !latest.root) return;
-        pauseRunningAnimations(latest.root, latest.strategy);
+        if(latest.pauseMotion)pauseRunningAnimations(latest.root, latest.strategy);
         if (latest.pauseAutoMedia) pauseAutoplayingMedia(latest.root);
       }, RECHECK_INTERVAL_MS);
     }

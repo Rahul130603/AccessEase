@@ -28,7 +28,7 @@ function round1(value) {
  *    images, marquees, SVG animation),
  *  - content that cannot be inspected at all (canvas, third-party embeds).
  */
-export default function FlashGuardControls() {
+export default function FlashGuardControls({compact=false, hideSwitch=false}) {
   const { settings, actions, strings } = useA11ySettings();
   const copy = strings.flashing;
   const guard = useFlashGuard();
@@ -47,14 +47,14 @@ export default function FlashGuardControls() {
 
   return (
     <div className="a11ytb-feature">
-      <Switch
+      {!hideSwitch && <Switch
         label={copy.guardLabel}
-        description={copy.guardHint}
+        description={compact ? undefined : copy.guardHint}
         checked={guard.enabled}
         onChange={(next) => actions.setFlashGuard('enabled', next)}
-      />
+      />}
 
-      <p className="a11ytb-note a11ytb-note--warning">{strings.limits.shortFlashing}</p>
+      {!compact && <p className="a11ytb-note a11ytb-note--warning">{strings.limits.shortFlashing}</p>}
 
       {guard.enabled ? (
         <>
@@ -66,16 +66,16 @@ export default function FlashGuardControls() {
               className="a11ytb-select"
               id={actionId}
               value={guard.action}
-              aria-describedby={actionHintId}
+              aria-describedby={compact ? undefined : actionHintId}
               onChange={(event) => actions.setFlashGuard('action', event.target.value)}
             >
               <option value="pause">{copy.actionPause}</option>
               <option value="hide">{copy.actionHide}</option>
               <option value="warn">{copy.actionWarn}</option>
             </select>
-            <p className="a11ytb-hint" id={actionHintId}>
+            {!compact && <p className="a11ytb-hint" id={actionHintId}>
               {copy.actionHint}
-            </p>
+            </p>}
           </div>
 
           <div className="a11ytb-button-row">
@@ -204,13 +204,13 @@ export default function FlashGuardControls() {
             </ul>
           )}
 
-          <h4 className="a11ytb-note__heading">{copy.uninspectableHeading}</h4>
+          {!compact && <><h4 className="a11ytb-note__heading">{copy.uninspectableHeading}</h4>
           <ul className="a11ytb-uninspectable">
             <li>{copy.uninspectableVideo}</li>
             <li>{copy.uninspectableCanvas}</li>
             <li>{copy.uninspectableEmbed}</li>
             <li>{copy.uninspectableScript}</li>
-          </ul>
+          </ul></>}
           {guard.uninspectable.length > 0 ? (
             <ul className="a11ytb-uninspectable">
               {guard.uninspectable.map((item) => (

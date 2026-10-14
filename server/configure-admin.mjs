@@ -1,0 +1,14 @@
+import {randomBytes,scrypt as scryptCallback} from 'node:crypto';
+import {promisify} from 'node:util';
+import {mkdir,writeFile} from 'node:fs/promises';
+const scrypt=promisify(scryptCallback);
+let input='';for await(const chunk of process.stdin)input+=chunk;
+const credentials=JSON.parse(input);
+if(typeof credentials.username!=='string'||!credentials.username.trim()||credentials.username.length>100||typeof credentials.password!=='string'||credentials.password.length<10||credentials.password.length>256)throw new Error('A username and password of 10–256 characters are required.');
+const salt=randomBytes(16);
+const hash=await scrypt(credentials.password,salt,64,{N:32768,r:8,p:1,maxmem:64*1024*1024});
+const directory=new URL('../.local/',import.meta.url);
+await mkdir(directory,{recursive:true});
+await writeFile(new URL('admin-auth.json',directory),JSON.stringify({username:credentials.username.trim(),salt:salt.toString('hex'),hash:hash.toString('hex')}),{mode:0o600});
+credentials.password='';input='';
+console.log('Admin credentials configured. Restart the server to apply them.');

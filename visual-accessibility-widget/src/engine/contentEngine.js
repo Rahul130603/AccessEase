@@ -3,6 +3,7 @@ import { colorModeVariables, colorSupportCss } from '../colorVision/colorModes.j
 import { dyslexiaFontCss } from './dyslexiaFont.js';
 import { applyLightTheme } from './lightTheme.js';
 import { reflowText } from './textReflow.js';
+import { applyColorVision } from './colorVision.js';
 const TEXT_SKIP = 'script,style,noscript,svg,svg *,canvas,iframe,[data-uaw-ignore],[data-uaw-ignore] *,[data-uaw-icon],[data-uaw-icon] *,[aria-hidden="true"],[aria-hidden="true"] *';
 const SCOPE = ':where([data-uaw-scope], [data-uaw-scope] *):not(:where([data-uaw-ignore],[data-uaw-ignore] *))';
 const TEXT = `${SCOPE}:not(:where(svg, svg *, img, video, canvas, [data-uaw-icon], [data-uaw-icon] *, [data-uaw-ignore], [data-uaw-ignore] *))`;
@@ -67,6 +68,7 @@ export function createContentEngine({ root = document.body, host, nonce }) {
     }
     let css = '';
     if (settings.colorVisionMode !== 'default') {
+      applyColorVision([...new Set([root, ...elements])], settings.colorVisionMode, override);
       for (const el of scopes.keys()) for (const [property, value] of Object.entries(colorModeVariables(settings.colorVisionMode))) override(el, property, value);
       css += colorSupportCss(SCOPE);
     }

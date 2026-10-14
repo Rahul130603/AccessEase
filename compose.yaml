@@ -6,5 +6,27 @@ services:
       context: .
     image: accessease:local
     ports:
-      - "127.0.0.1:1434:80"
+      - "127.0.0.1:1434:8080"
+    secrets:
+      - admin_auth
+    environment:
+      COOKIE_SECURE: "false"
+      PLATFORM_DATA_DIR: /app/data
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+    volumes:
+      - platform_data:/app/data
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
+
+secrets:
+  admin_auth:
+    file: ./.local/admin-auth.json
+
+volumes:
+  platform_data:

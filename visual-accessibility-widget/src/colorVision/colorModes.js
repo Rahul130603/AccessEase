@@ -6,9 +6,9 @@ const palette = (background, primary, success, error, warning, information) => (
 // Assistance palettes, not medical simulations. Both UIs and the SDK share these values.
 export const COLOR_MODES = Object.freeze([
   { id: 'default', name: 'Normal / Default', description: 'Original website colors.', colors: palette('#f5f7fb', '#2563eb', '#166534', '#991b1b', '#854b00', '#1d4ed8') },
-  { id: 'protanopia', name: 'Protanopia Support', description: 'Blue, amber and violet alternatives for red color vision deficiency.', colors: palette('#f0f7fc', '#005a9c', '#005a9c', '#8b4300', '#603f9b', '#29456f') },
-  { id: 'deuteranopia', name: 'Deuteranopia Support', description: 'Violet, blue and ochre alternatives for green color vision deficiency.', colors: palette('#f6f3fc', '#51439d', '#365899', '#955000', '#65409a', '#07576a') },
-  { id: 'tritanopia', name: 'Tritanopia Support', description: 'Rose, teal and plum alternatives for blue-yellow color vision deficiency.', colors: palette('#fff3f6', '#a3214b', '#007361', '#a3214b', '#624080', '#364d65') },
+  { id: 'protanopia', name: 'Protanopia Support', description: 'Blue, amber and violet alternatives for red color vision deficiency.', colors: { ...palette('#f0f7fc', '#005a9c', '#005a9c', '#8b4300', '#603f9b', '#29456f'), surface: '#f8fcff', text: '#16334b', muted: '#3c566b' } },
+  { id: 'deuteranopia', name: 'Deuteranopia Support', description: 'Violet, blue and ochre alternatives for green color vision deficiency.', colors: { ...palette('#f6f3fc', '#51439d', '#365899', '#955000', '#65409a', '#07576a'), surface: '#fcfaff', text: '#30264b', muted: '#574b6b' } },
+  { id: 'tritanopia', name: 'Tritanopia Support', description: 'Rose, teal and plum alternatives for blue-yellow color vision deficiency.', colors: { ...palette('#fff3f6', '#a3214b', '#007361', '#a3214b', '#624080', '#364d65'), surface: '#fffafb', text: '#482638', muted: '#6b4758' } },
   { id: 'monochrome', name: 'High Distinction / Monochrome', description: 'Neutral tones with distinct labels, icons, borders and patterns.', colors: { ...palette('#f4f4f4', '#252525', '#222222', '#444444', '#555555', '#666666'), text: '#202020', muted: '#505050' } },
 ]);
 export const getColorMode = id => COLOR_MODES.find(mode => mode.id === id) || COLOR_MODES[0];

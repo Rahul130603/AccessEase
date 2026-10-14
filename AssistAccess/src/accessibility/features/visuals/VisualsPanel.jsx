@@ -20,7 +20,7 @@ import { matchPresetId, VISUAL_PRESETS } from './presets.js';
  *  - The toolbar's own chrome is counter-filtered by the applier, so these
  *    controls do not make the toolbar itself unreadable.
  */
-export default function VisualsPanel() {
+export default function VisualsPanel({compact=false}) {
   const { settings, actions, config, strings } = useA11ySettings();
   const copy = strings.visuals;
   const visual = settings.visual;
@@ -38,10 +38,10 @@ export default function VisualsPanel() {
   const percentText = (value) => formatMessage(copy.percentValue, { value });
 
   return (
-    <div className="a11ytb-feature">
+    <div className={`a11ytb-feature${compact ? ' controls-compact' : ''}`}>
       <Switch
         label={copy.enableLabel}
-        description={copy.enableHint}
+        description={compact ? undefined : copy.enableHint}
         checked={visual.enabled}
         onChange={(next) => actions.setVisualEnabled(next)}
       />
@@ -77,7 +77,7 @@ export default function VisualsPanel() {
 
       <SliderControl
         label={copy.brightnessLabel}
-        hint={copy.sliderHint}
+        hint={compact ? undefined : copy.sliderHint}
         value={visual.brightness}
         min={VISUAL_RANGES.brightness.min}
         max={VISUAL_RANGES.brightness.max}
@@ -89,7 +89,7 @@ export default function VisualsPanel() {
 
       <SliderControl
         label={copy.contrastLabel}
-        hint={copy.sliderHint}
+        hint={compact ? undefined : copy.sliderHint}
         value={visual.contrast}
         min={VISUAL_RANGES.contrast.min}
         max={VISUAL_RANGES.contrast.max}
@@ -101,7 +101,7 @@ export default function VisualsPanel() {
 
       <SliderControl
         label={copy.saturationLabel}
-        hint={copy.sliderHint}
+        hint={compact ? undefined : copy.sliderHint}
         value={visual.saturation}
         min={VISUAL_RANGES.saturation.min}
         max={VISUAL_RANGES.saturation.max}
@@ -144,14 +144,14 @@ export default function VisualsPanel() {
         <p className="a11ytb-note a11ytb-note--warning">{copy.forcedColorsNote}</p>
       ) : null}
 
-      <div className="a11ytb-note">
+      {!compact && <div className="a11ytb-note">
         <h4 className="a11ytb-note__heading">{strings.limits.visualsHeading}</h4>
         <ul>
           {strings.limits.visuals.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
-      </div>
+      </div>}
     </div>
   );
 }

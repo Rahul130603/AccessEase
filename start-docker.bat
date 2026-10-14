@@ -2,6 +2,12 @@
 setlocal
 title AccessEase - Docker
 
+if not exist "%~dp0.local\admin-auth.json" (
+    echo ERROR: Admin credentials are not configured. See README.md.
+    pause
+    exit /b 1
+)
+
 where docker.exe >nul 2>nul
 if errorlevel 1 (
     echo ERROR: Docker Desktop is not installed or docker is not on PATH.
@@ -20,7 +26,7 @@ if errorlevel 1 (
 docker compose -f "%~dp0compose.yaml" up -d --build
 if errorlevel 1 (
     echo ERROR: Docker could not start the website. Check the error above.
-    echo If port 1434 is occupied by the Python server, stop it with Ctrl+C first.
+    echo If port 1434 is occupied by another server, stop it with Ctrl+C first.
     pause
     exit /b 1
 )

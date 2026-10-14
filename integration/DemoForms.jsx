@@ -1,0 +1,15 @@
+import React,{useState} from 'react';
+import {createPortal} from 'react-dom';
+import {SignInForm} from '../AssistAccess/src/accessibility/patterns/AuthForms.jsx';
+import {useConfirm} from '../AssistAccess/src/accessibility/core/confirm/ConfirmContext.jsx';
+import {useAnnounce} from '../AssistAccess/src/accessibility/core/SettingsContext.jsx';
+export default function DemoForms(){
+ const mount=document.getElementById('demo-form-root');
+ const [values,setValues]=useState({}),[errors,setErrors]=useState({}),[message,setMessage]=useState(''),[report,setReport]=useState(true);
+ const confirm=useConfirm(),announce=useAnnounce();
+ if(!mount)return null;
+ function notify(text){setMessage(text);announce(text,{source:'playground',level:'standard'});}
+ function submit(){const next={};if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email||''))next.email='Enter a sample email such as learner@example.com.';if((values.password||'').length<8)next.password='Use at least 8 sample characters.';setErrors(next);if(Object.keys(next).length){notify('Please correct the marked fields.');requestAnimationFrame(()=>mount.querySelector('[aria-invalid=true]')?.focus());}else{notify('Demo sign-in completed. No account was accessed and nothing was sent.');setValues({});}}
+ async function remove(){if(await confirm({title:'Delete the sample report?',description:'Only this demo card will be removed. You can restore it afterwards.',confirmLabel:'Delete sample report',cancelLabel:'Keep report',destructive:true})){setReport(false);notify('Sample report deleted. Use Restore sample report to bring it back.');}}
+ return createPortal(<div className="lab-columns"><article className="lab-card"><span className="lab-kicker">LABELS · PASSWORD · AUTHENTICATION</span><p>Use sample values only. Submit empty fields, paste a password, then toggle Show/Hide.</p><SignInForm values={values} onChange={setValues} errors={errors} onSubmit={submit} labels={{signInTitle:'Sample sign-in',signIn:'Try demo sign-in'}} onEmailLink={()=>notify('Demo sign-in link selected. No email was sent.')} onForgotPassword={()=>notify('Demo password recovery selected. No account was changed.')}/><p role="status" className="lab-result">{message}</p></article><article className="lab-card"><span className="lab-kicker">CONFIRMATION · ANNOUNCEMENTS</span><h3>Your sample report</h3><p>Open the confirmation. Try Tab and Escape, then confirm. Focus should return to the action.</p>{report?<div className="sample-report"><strong>Learning notes.pdf</strong><p>3 pages · Sample content</p><button onClick={remove}>Delete sample report</button></div>:<><p>The sample report has been removed.</p><button onClick={()=>{setReport(true);notify('Sample report restored.');}}>Restore sample report</button></>}<hr/><h3>Announce an update</h3><p>Use a screen reader to hear the update. Enable Visual Notifications to also see a toast.</p><button onClick={()=>notify(`Your sample notes were saved at ${new Date().toLocaleTimeString()}.`)}>Save sample notes</button></article></div>,mount);
+}

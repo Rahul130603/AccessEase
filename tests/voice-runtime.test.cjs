@@ -1,0 +1,197 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {JSDOM,VirtualConsole}=require('jsdom');
+
+const widget=fs.readFileSync(path.join(__dirname,'../dist/widget.js'),'utf8');
+
+function setup(getUserMedia,{trackInput=false,devices=[],rejectTrack=false}={}){
+  const errors=[];
+  const console=new VirtualConsole();console.on('jsdomError',error=>errors.push(error.message));
+  const dom=new JSDOM('<!doctype html><html lang="en"><head></head><body><main><h1>Voice test</h1><button id="save">Save bookmark</button></main></body></html>',{
+    url:'http://localhost:1434/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:console
+  });
+  const w=dom.window, sessions=[],pageScroll=[];
+  class Recognition{
+    constructor(){sessions.push(this);}
+    start(track){this.track=track;if(track&&rejectTrack)throw new TypeError('Audio track input unavailable');this.started=true;}
+    abort(){this.aborted=true;}
+  }
+  w.SpeechRecognition=Recognition;
+  Object.defineProperty(w.navigator,'mediaDevices',{value:{getUserMedia,enumerateDevices:async()=>devices}});
+  if(trackInput)Object.defineProperty(w.navigator,'userAgent',{value:'Mozilla/5.0 Windows Chrome/145.0.0.0 Safari/537.36'});
+  w.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});
+  w.HTMLElement.prototype.getClientRects=function(){return [{}];};
+  w.HTMLElement.prototype.scrollIntoView=function(){};
+  w.scrollBy=options=>pageScroll.push(options.top);
+  Object.defineProperty(w.document,'currentScript',{value:{src:'http://localhost:1434/widget.js'}});
+  w.eval(widget);
+  const root=w.AccessEase.root;
+  root.querySelector('.launcher').click();
+  return {dom,w,root,sessions,pageScroll,errors};
+}
+
+function speech(session,index,transcript){
+  const results=Array.from({length:index+1},()=>{const result=[{transcript:''}];result.isFinal=false;return result;});
+  results[index]=[{transcript}];results[index].isFinal=true;
+  session.onresult({resultIndex:index,results});
+}
+
+test('one recognizer opens the microphone, hears speech, scrolls, and clicks a named button',async()=>{
+  let permissionProbe=0,clicked=0;
+  const t=setup(()=>{permissionProbe++;throw Error('unexpected extra microphone request');});
+  try{
+    t.w.document.querySelector('#save').addEventListener('click',()=>clicked++);
+    t.root.querySelector('[data-setting="voice"]').click();
+    assert.match(t.root.querySelector('.status').textContent,/Starting microphone/);
+    assert.equal(permissionProbe,0,'speech recognition owns the microphone without a separate permission probe');
+    assert.equal(t.sessions.length,1);
+    assert.equal(t.sessions[0].started,true);
+    assert.equal(t.root.querySelector('[data-setting="voice"]').dataset.voicePhase,'starting');
+    t.sessions[0].onstart();
+    assert.match(t.root.querySelector('.status').textContent,/Waiting for microphone audio/);
+    t.sessions[0].onaudiostart();
+    assert.equal(t.root.querySelector('[data-setting="voice"]').dataset.voicePhase,'listening');
+    const interim=[{transcript:'scroll do'}];interim.isFinal=false;
+    t.sessions[0].onresult({resultIndex:0,results:[interim]});
+    assert.match(t.root.querySelector('.status').textContent,/Hearing “scroll do”/);
+    assert.equal(t.root.querySelector('.body').scrollTop,0,'interim words do not run commands');
+    speech(t.sessions[0],0,'scroll down');
+    assert.equal(t.root.querySelector('.body').scrollTop,450,'open settings panel scrolls');
+    assert.deepEqual(t.pageScroll,[],'page stays in place while settings are open');
+    speech(t.sessions[0],1,'click on the Save bookmark button');
+    assert.equal(clicked,1,'named page button is activated');
+    assert.equal(t.root.querySelector('.panel').hidden,true,'page button is revealed');
+    assert.equal(t.root.querySelector('.voice-indicator').hidden,false,'listening remains visible after closing settings');
+    speech(t.sessions[0],2,'scroll down');
+    assert.deepEqual(t.pageScroll,[450],'page scrolls after settings are closed');
+    speech(t.sessions[0],3,'click missing button');
+    assert.match(t.root.querySelector('.voice-indicator-text').textContent,/No available button/,'unmatched commands stay visible outside settings');
+    t.root.querySelector('.voice-indicator button').click();
+    assert.equal(t.sessions[0].aborted,true);
+    assert.equal(t.root.querySelector('.voice-indicator').hidden,true);
+    assert.deepEqual(t.errors,[]);
+  }finally{t.w.close();}
+});
+
+function microphone(label,deviceId){
+  const track={label,kind:'audio',readyState:'live',stopped:false,getSettings:()=>({deviceId}),stop(){this.stopped=true;this.readyState='ended';}};
+  return {track,getTracks:()=>[track],getAudioTracks:()=>[track]};
+}
+const settle=()=>new Promise(resolve=>setTimeout(resolve,0));
+for(const failure of ['throw','network','audio-capture','end','timeout']){
+  test(`track input ${failure} falls back to native capture and executes a spoken command`,async()=>{
+    const stream=microphone('Microphone','physical');let requests=0;
+    const t=setup(async()=>{requests++;return stream;},{trackInput:true,rejectTrack:failure==='throw'});
+    try{
+      if(failure==='timeout'){
+        const schedule=t.w.setTimeout.bind(t.w);let firstStartup=true;
+        t.w.setTimeout=(callback,delay,...args)=>{
+          if(delay===10000&&firstStartup){firstStartup=false;return schedule(callback,5,...args);}
+          return schedule(callback,delay,...args);
+        };
+      }
+      t.root.querySelector('[data-setting="voice"]').click();await settle();
+      const first=t.sessions[0],lateResult=first.onresult;
+      if(failure==='end')first.onend();
+      else if(failure==='timeout')await new Promise(resolve=>setTimeout(resolve,25));
+      else if(failure!=='throw')first.onerror({error:failure});
+      assert.equal(first.aborted,true);assert.equal(stream.track.stopped,true);
+      assert.match(t.root.querySelector('.status').textContent,/browser default microphone/);
+      await new Promise(resolve=>setTimeout(resolve,250));
+      assert.equal(t.sessions.length,2);assert.equal(t.sessions[1].track,undefined);
+      assert.equal(requests,1,'fallback must not reopen the rejected track capture');
+      t.sessions[1].onaudiostart();
+      lateResult?.({resultIndex:0,results:[]});
+      speech(t.sessions[1],0,'scroll down');
+      assert.equal(t.root.querySelector('.body').scrollTop,450);
+      t.sessions[1].onend();await new Promise(resolve=>setTimeout(resolve,250));
+      assert.equal(t.sessions[2].track,undefined,'normal reconnect stays on native capture');
+      assert.equal(requests,1);
+      t.root.querySelector('[data-setting="voice"]').click();
+      assert.equal(t.sessions[2].aborted,true);assert.deepEqual(t.errors,[]);
+    }finally{t.w.close();}
+  });
+}
+test('silent virtual default is replaced with a physical microphone track and kept across reconnects',async()=>{
+  const virtual=microphone('Default - Microphone (HitPaw Virtual Audio)','virtual'),physical=microphone('Microphone (Realtek Audio)','physical'),requests=[];
+  const devices=[{kind:'audioinput',deviceId:'default',label:virtual.track.label},{kind:'audioinput',deviceId:'virtual',label:'HitPaw Virtual Audio'},{kind:'audioinput',deviceId:'physical',label:physical.track.label}];
+  const t=setup(async options=>{requests.push(options);return requests.length===1?virtual:physical;},{trackInput:true,devices});
+  try{
+    const toggle=t.root.querySelector('[data-setting="voice"]');toggle.click();await settle();
+    assert.equal(requests.length,2);assert.equal(requests[1].audio.deviceId.exact,'physical');
+    assert.equal(virtual.track.stopped,true);assert.equal(physical.track.stopped,false);
+    assert.equal(t.sessions[0].track,physical.track);
+    assert.equal(t.root.querySelector('[aria-label="Voice microphone"]').value,'physical');
+    t.sessions[0].onaudiostart();t.sessions[0].onerror({error:'no-speech'});
+    await new Promise(resolve=>setTimeout(resolve,250));
+    assert.equal(t.sessions[1].track,physical.track);assert.equal(requests.length,2,'reconnect reuses the open input');
+    assert.equal(physical.track.stopped,false,'browser session endings do not cut the microphone stream');
+    speech(t.sessions[1],0,'close settings');assert.equal(t.root.querySelector('.panel').hidden,true);
+    t.root.querySelector('.voice-indicator button').click();
+    assert.equal(physical.track.stopped,true);assert.equal(t.root.querySelector('.voice-input').hidden,true);
+    assert.deepEqual(t.errors,[]);
+  }finally{t.w.close();}
+});
+test('turning voice off while microphone permission is pending releases late audio without starting recognition',async()=>{
+  let resolveInput;const stream=microphone('Real microphone','physical');
+  const t=setup(()=>new Promise(resolve=>{resolveInput=resolve;}),{trackInput:true});
+  try{
+    const toggle=t.root.querySelector('[data-setting="voice"]');toggle.click();toggle.click();
+    resolveInput(stream);await settle();
+    assert.equal(stream.track.stopped,true);assert.equal(t.sessions.length,0);assert.equal(t.w.AccessEase.getSettings().voice,false);
+  }finally{t.w.close();}
+});
+test('choosing a different microphone replaces the old track and device loss stops capture',async()=>{
+  const first=microphone('Microphone one','one'),second=microphone('Microphone two','two'),requests=[];
+  const devices=[{kind:'audioinput',deviceId:'one',label:first.track.label},{kind:'audioinput',deviceId:'two',label:second.track.label}];
+  const t=setup(async options=>{requests.push(options);return requests.length===1?first:second;},{trackInput:true,devices});
+  try{
+    t.root.querySelector('[data-setting="voice"]').click();await settle();
+    const select=t.root.querySelector('[aria-label="Voice microphone"]');select.value='two';select.dispatchEvent(new t.w.Event('change'));await settle();
+    assert.equal(first.track.stopped,true);assert.equal(t.sessions[0].aborted,true);assert.equal(t.sessions[1].track,second.track);
+    assert.equal(requests[1].audio.deviceId.exact,'two');
+    second.track.onended();assert.equal(second.track.stopped,true);assert.equal(t.w.AccessEase.getSettings().voice,false);
+    assert.match(t.root.querySelector('.status').textContent,/microphone disconnected/);
+    assert.deepEqual(t.errors,[]);
+  }finally{t.w.close();}
+});
+
+test('denied speech microphone access disables voice and explains the Chrome permission',async()=>{
+  const t=setup(()=>{throw Error('unexpected extra microphone request');});
+  try{
+    t.root.querySelector('[data-setting="voice"]').click();
+    t.sessions[0].onerror({error:'not-allowed'});
+    assert.equal(t.w.AccessEase.getSettings().voice,false);
+    assert.equal(t.root.querySelector('[data-setting="voice"]').getAttribute('aria-pressed'),'false');
+    assert.match(t.root.querySelector('.status').textContent,/Allow the microphone in your browser site settings/);
+    assert.deepEqual(t.errors,[]);
+  }finally{t.w.close();}
+});
+
+test('interrupted microphone reconnects, accepts a command, and Stop cancels recovery',async()=>{
+  const t=setup(()=>{throw Error('unexpected extra microphone request');});
+  try{
+    const toggle=t.root.querySelector('[data-setting="voice"]');
+    toggle.click();t.sessions[0].onaudiostart();
+    t.sessions[0].onerror({error:'aborted'});
+    assert.equal(toggle.getAttribute('aria-pressed'),'true');
+    assert.equal(toggle.dataset.voicePhase,'reconnecting');
+    await new Promise(resolve=>t.w.setTimeout(resolve,250));
+    assert.equal(t.sessions.length,2);t.sessions[1].onaudiostart();
+    assert.equal(toggle.dataset.voicePhase,'listening');
+    speech(t.sessions[1],0,'scroll down');
+    assert.equal(t.root.querySelector('.body').scrollTop,450);
+    speech(t.sessions[1],1,'close settings');
+    t.sessions[1].onerror({error:'network'});
+    assert.equal(t.root.querySelector('.voice-indicator').hidden,false);
+    assert.match(t.root.querySelector('.voice-indicator-text').textContent,/Reconnecting automatically/);
+    t.root.querySelector('.voice-indicator button').click();
+    assert.equal(t.w.AccessEase.getSettings().voice,false);
+    assert.equal(toggle.getAttribute('aria-pressed'),'false');
+    await new Promise(resolve=>t.w.setTimeout(resolve,1100));
+    assert.equal(t.sessions.length,2,'Stop cancels a pending network retry');
+    assert.deepEqual(t.errors,[]);
+  }finally{t.w.close();}
+});

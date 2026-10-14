@@ -7,39 +7,73 @@ export function createReadingEngine({ shadow, root, update }) {
   const preview = shadow.querySelector('.magnifier-text');
   const dismiss = shadow.querySelector('.overlay-close');
   const sizeControls = shadow.querySelectorAll('.reading-size-controls');
+  let passageOffset = 0;
   let settings, x = window.innerWidth / 2, y = window.innerHeight / 2, frame = 0, target, focusTracking = false;
-  const excluded = '[data-uaw-ignore],[aria-hidden="true"],[hidden],script,style,template,img,picture,svg,canvas,video,audio,iframe,input[type="password"],input[type="hidden"]';
+  const excluded = '[data-uaw-ignore],[aria-hidden="true"],[hidden],[role="img"],[data-logo],script,style,template,img,picture,svg,canvas,video,audio,iframe,input[type="password"],input[type="hidden"]';
+
+  function isExcluded(element) {
+    if (!element || element.closest(excluded)) return true;
+    // Wordmarks are sometimes text inside a logo wrapper rather than images.
+    for (let current = element; current; current = current.parentElement) {
+      if (/(^|[\s_-])logo([\s_-]|$)/i.test(current.id + ' ' + (current.getAttribute('class') || ''))) return true;
+    }
+    return false;
+  }
 
   function readableText(element) {
-    if (!element || element.closest(excluded)) return '';
+    passageOffset = 0;
+    if (isExcluded(element)) return '';
     let boundary = element;
     while (!root.contains(boundary) && boundary.getRootNode().host) boundary = boundary.getRootNode().host;
-    if (!root.contains(boundary) || boundary.closest(excluded)) return '';
-    const style = getComputedStyle(element);
-    if (style.visibility !== 'visible' || style.display === 'none') return '';
+    if (!root.contains(boundary) || isExcluded(boundary)) return '';
+    const visible = item => { const style = getComputedStyle(item); return style.visibility === 'visible' && style.display !== 'none'; };
+    if (!visible(element)) return '';
     if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-      return ['checkbox','radio','range','color','file','image'].includes(element.type) ? '' : (element.value || element.placeholder || '').trim();
+      return ['password','hidden','checkbox','radio','range','color','file','image'].includes(element.type) ? '' : (element.value || element.placeholder || '').trim();
     }
     if (element instanceof HTMLSelectElement) return [...element.selectedOptions].map(option => option.text).join(' ').trim();
-    if (focusTracking) return element.innerText?.trim() || '';
-    // Inspect rendered text instead of restricting support to a list of HTML tags.
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    let node;
+    // Keep inline links and emphasis together as one continuous paragraph.
+    const block = element.closest('p,li,blockquote,h1,h2,h3,h4,h5,h6,figcaption,td,th,label,button') || element;
+    if (isExcluded(block)) return '';
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    let node, text = '', hit = focusTracking;
     while ((node = walker.nextNode())) {
-      const parent = node.parentElement;
-      if (!node.textContent.trim() || parent.closest(excluded)) continue;
-      const nodeStyle = getComputedStyle(parent);
-      if (nodeStyle.visibility !== 'visible' || nodeStyle.display === 'none') continue;
+      if (!node.textContent.trim() || isExcluded(node.parentElement) || !visible(node.parentElement)) continue;
       const range = document.createRange();
       range.selectNodeContents(node);
-      if ([...range.getClientRects()].some(rect => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)) {
-        return node.textContent.trim();
+      if (!focusTracking && [...range.getClientRects()].some(rect => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)) {
+        hit = true;
+        const caret = document.caretPositionFromPoint?.(x,y);
+        const legacy = !caret && document.caretRangeFromPoint?.(x,y);
+        const offset = caret?.offsetNode === node ? caret.offset : legacy?.startContainer === node ? legacy.startOffset : 0;
+        passageOffset = text.length + offset;
       }
+      text += node.textContent;
     }
-    // A compact text element may have line-spacing between its painted glyphs.
-    // Never fall back to a whole layout container or include image alternatives.
-    if (!element.querySelector('div,section,article,p,h1,h2,h3,h4,h5,h6,ul,ol,table,img,picture,svg,canvas,video,iframe,input,textarea,select,[contenteditable]')) return element.innerText?.trim() || '';
-    return '';
+    // Do not collect neighboring sections just because a layout container is hovered.
+    if (!hit) return '';
+    const before = text.slice(0,passageOffset).replace(/\s+/g,' ').trimStart();
+    passageOffset = before.length;
+    return text.replace(/\s+/g,' ').trim();
+  }
+
+  function fitPassage(text) {
+    const words = [...text.matchAll(/\S+/g)];
+    if (!words.length) return false;
+    const fits = () => preview.scrollHeight <= preview.clientHeight && preview.scrollWidth <= preview.clientWidth;
+    preview.textContent = text;
+    if (fits()) return true;
+    // Long paragraphs advance with the hovered word, without scrollbars or shrinking text.
+    const active = Math.max(0, words.findIndex(word => word.index + word[0].length >= passageOffset));
+    const start = Math.max(0, active - 3);
+    let low = 0, high = words.length - start;
+    while (low < high) {
+      const count = Math.ceil((low + high) / 2);
+      preview.textContent = words.slice(start,start + count).map(word => word[0]).join(' ');
+      if (fits()) low = count; else high = count - 1;
+    }
+    preview.textContent = words.slice(start,start + low).map(word => word[0]).join(' ');
+    return low > 0;
   }
 
   function positionPreview() {
@@ -70,9 +104,11 @@ export function createReadingEngine({ shadow, root, update }) {
     shadow.host.style.setProperty('--reading-controls-y', `${controlY}px`);
     if (!settings?.magnifier || !target) { magnifier.hidden = true; return; }
     const text = readableText(target);
-    if (text && preview.textContent !== text) preview.textContent = text.slice(0, 1500);
     magnifier.hidden = !text;
-    if (text) positionPreview();
+    if (text) {
+      magnifier.hidden = !fitPassage(text);
+      if (!magnifier.hidden) positionPreview();
+    }
   }
   function schedule() { if (!frame) frame = requestAnimationFrame(render); }
   function pointer(event) {

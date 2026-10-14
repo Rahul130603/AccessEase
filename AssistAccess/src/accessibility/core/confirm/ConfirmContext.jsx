@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {createPortal} from 'react-dom';
 
 import { warnDev } from '../warnDev.js';
 import { useA11ySettings } from '../SettingsContext.jsx';
@@ -23,7 +24,7 @@ import ConfirmDialog from '../../ui/ConfirmDialog.jsx';
 
 const ConfirmContext = createContext(null);
 
-export function ConfirmProvider({ children }) {
+export function ConfirmProvider({ children, portalTarget }) {
   const { strings } = useA11ySettings();
   const [request, setRequest] = useState(null);
   const currentRef = useRef(null);
@@ -79,7 +80,7 @@ export function ConfirmProvider({ children }) {
   return (
     <ConfirmContext.Provider value={value}>
       {children}
-      <ConfirmDialog
+      {(() => {const dialog = <ConfirmDialog
         open={Boolean(request)}
         title={options.title || copy.dialogTitle}
         description={options.description || ''}
@@ -92,7 +93,7 @@ export function ConfirmProvider({ children }) {
         titleLevel={options.titleLevel}
         onConfirm={() => settle(true)}
         onCancel={() => settle(false)}
-      />
+      />;return portalTarget ? createPortal(dialog, portalTarget) : dialog;})()}
     </ConfirmContext.Provider>
   );
 }

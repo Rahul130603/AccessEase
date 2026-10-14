@@ -2,6 +2,7 @@
 .openai/
 tests/caption-build/
 node_modules/
+.local/
 *.log
 .env
 .env.*
@@ -9,3 +10,9 @@ node_modules/
 Thumbs.db
 .DS_Store
 *.tar.gz
+
+# Generated deployment packages (no credentials included)
+release/
+
+# Local demo recordings and hosting diagnostic screenshots
+artifacts/

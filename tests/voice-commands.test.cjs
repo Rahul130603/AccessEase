@@ -8,7 +8,7 @@ const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../dist/widget.js'), 'utf8');
 const voiceSource = source.slice(source.indexOf('  let voiceRestartTimer='), source.indexOf('  function clearScan()'));
 function setup({ unsupported = false, failStart = false, names = null } = {}) {
-  const sessions = [], timers = new Map(), events = [];
+  const sessions = [], timers = new Map(), events = [], delays = [];
   const items=(names||['Example link']).map(name=>({
     textContent:name, getAttribute:()=>null, querySelector:()=>null, matches:()=>true,
     focus:()=>events.push(['focus',name]), click:()=>events.push(names?['click',name]:['click'])
@@ -23,11 +23,13 @@ function setup({ unsupported = false, failStart = false, names = null } = {}) {
     state: {voice: true}, recognition: null, selectedReadingText: '',
     window: {SpeechRecognition: unsupported ? undefined : Recognition, scrollBy: value => events.push(['scroll', value.top])},
     status: text => events.push(['status', text]), apply: () => events.push(['apply']),
+    setVoicePhase:()=>{}, scrollVoice:top=>events.push(['scroll',top]),
+    root:{contains:()=>true},panel:{hidden:false},voiceInput:{hidden:true},
     move: direction => events.push(['move', direction]),
     focused: () => items[0], controls:()=>items,
     captureSelection: () => false, startSpeech: () => events.push(['read']), stopSpeech: () => events.push(['stop-read']),
     openPanel: open => events.push(['panel', open]), reset: () => {context.stopVoice(); events.push(['reset']);},
-    setTimeout: callback => {timers.set(++timerId, callback); return timerId;},
+    setTimeout: (callback,delay) => {delays.push(delay);timers.set(++timerId, callback); return timerId;},
     clearTimeout: id => timers.delete(id)
   });
   vm.runInContext(voiceSource, context);
@@ -36,16 +38,18 @@ function setup({ unsupported = false, failStart = false, names = null } = {}) {
     sessions.at(-1).onresult({resultIndex: 0, results: [row]});
   }
   function tick() { const callbacks = [...timers.values()]; timers.clear(); callbacks.forEach(fn => fn()); }
-  return {context, sessions, timers, events, result, tick, items};
+  return {context, sessions, timers, events, result, tick, items, delays};
 }
 
 let count = 0;
 function test(name, run) { run(); count++; console.log('PASS ' + name); }
-test('start waits for permission and ready status follows onstart', () => {
+test('microphone status follows audio capture, not just speech service start', () => {
   const t = setup(); t.context.startVoice();
-  assert.match(t.events.at(-1)[1], /Waiting for the microphone/);
-  t.sessions[0].onstart(); assert.match(t.events.at(-1)[1], /Microphone ready/);
+  assert.match(t.events.at(-1)[1], /Starting microphone/);
+  t.sessions[0].onstart(); assert.match(t.events.at(-1)[1], /Waiting for microphone audio/);
+  t.sessions[0].onaudiostart(); assert.match(t.events.at(-1)[1], /Microphone ready/);
   assert.equal(t.sessions[0].lang, 'en-US');
+  assert.equal(t.sessions[0].interimResults,true);
 });
 test('final commands scroll, navigate, click, and open settings', () => {
   const t = setup(); t.context.startVoice();
@@ -68,15 +72,76 @@ test('normal session end reconnects instead of turning the setting off', () => {
   assert.equal(t.context.state.voice,true); t.tick(); assert.equal(t.sessions.length,2); assert.equal(t.sessions[1].started,true);
 });
 test('no-speech timeout remains enabled and reconnects', () => {
-  const t = setup(); t.context.startVoice(); t.sessions[0].onerror({error:'no-speech'}); t.sessions[0].onend(); t.tick();
+  const t = setup(); t.context.startVoice(); t.sessions[0].onerror({error:'no-speech'}); t.sessions[0].onend?.(); t.tick();
   assert.equal(t.context.state.voice,true); assert.equal(t.sessions.length,2);
 });
-test('permission, network, and microphone errors show actionable errors', () => {
-  for(const [error,expected] of [['not-allowed',/Allow the microphone/],['network',/internet connection/],['audio-capture',/No working microphone/]]) {
+test('repeated silent sessions stay enabled without reporting a broken microphone', () => {
+  const t=setup();t.context.startVoice();
+  for(let i=0;i<3;i++){
+    t.sessions.at(-1).onstart();t.sessions.at(-1).onaudiostart();t.sessions.at(-1).onend();
+    if(i<2)t.tick();
+  }
+  assert.match(t.events.at(-1)[1],/still on/);
+  assert.equal(t.context.state.voice,true);
+});
+test('permission and microphone errors show actionable errors', () => {
+  for(const [error,expected] of [['not-allowed',/Allow the microphone/],['service-not-allowed',/blocked speech recognition/],['audio-capture',/No working microphone/]]) {
     const t=setup();t.context.startVoice();t.sessions[0].onerror({error});
     assert.equal(t.context.state.voice,false);assert.equal(t.sessions[0].aborted,true);
     assert.match(t.events.at(-1)[1],expected);assert.equal(t.timers.size,0);
   }
+});
+test('temporary errors reconnect even without an end event and accept the next command',()=>{
+  for(const error of ['no-speech','aborted','network']){
+    const t=setup();t.context.startVoice();
+    const old=t.sessions[0],lateEnd=old.onend,lateError=old.onerror,lateResult=old.onresult;
+    old.onaudiostart();old.onerror({error});
+    assert.equal(t.context.state.voice,true);assert.equal(old.aborted,true);assert.equal(old.onend,null);
+    if(error==='network')assert.match(t.events.at(-1)[1],/internet connection/);
+    assert.equal(t.timers.size,1);t.tick();
+    assert.equal(t.sessions.length,2);t.sessions[1].onaudiostart();
+    lateEnd();lateError({error:'not-allowed'});
+    const row=[{transcript:'scroll down'}];row.isFinal=true;lateResult({resultIndex:0,results:[row]});
+    assert.equal(t.context.state.voice,true);assert.equal(t.timers.size,0);
+    t.result('scroll down');
+    assert.deepEqual(t.events.filter(e=>e[0]==='scroll'),[['scroll',450]]);
+  }
+});
+test('network retries use capped backoff and reset after recognized speech',()=>{
+  const t=setup();t.context.startVoice();
+  for(let i=0;i<4;i++){t.sessions.at(-1).onaudiostart();t.sessions.at(-1).onerror({error:'network'});t.tick();}
+  assert.deepEqual(t.delays.filter(delay=>delay!==10000),[1000,2000,4000,5000]);
+  t.result('scroll down');t.sessions.at(-1).onerror({error:'network'});
+  assert.equal(t.delays.at(-1),1000);assert.equal(t.context.state.voice,true);
+  t.context.stopVoice();t.tick();assert.equal(t.sessions.length,5);
+});
+test('persistent network errors stop instead of reconnecting forever',()=>{
+  const t=setup();t.context.startVoice();
+  for(let i=0;i<5;i++){t.sessions.at(-1).onaudiostart();t.sessions.at(-1).onerror({error:'network'});if(i<4)t.tick();}
+  assert.equal(t.context.state.voice,false);assert.equal(t.sessions.length,5);assert.equal(t.timers.size,0);
+  assert.match(t.events.at(-1)[1],/could not connect after 4 retries/);
+});
+test('missing service start event times out and a retry accepts a command',()=>{
+  const t=setup();t.context.startVoice();
+  assert.equal(t.timers.size,1);t.tick();assert.equal(t.sessions[0].aborted,true);
+  t.tick();t.sessions[1].onaudiostart();t.result('scroll down');
+  assert.deepEqual(t.events.filter(e=>e[0]==='scroll'),[['scroll',450]]);
+});
+test('slow audio startup retries before reporting a microphone failure',()=>{
+  const t=setup();t.context.startVoice();t.sessions[0].onstart();t.tick();
+  assert.equal(t.context.state.voice,true);assert.equal(t.sessions[0].aborted,true);
+  t.tick();t.sessions[1].onaudiostart();t.result('scroll down');
+  assert.deepEqual(t.events.filter(e=>e[0]==='scroll'),[['scroll',450]]);
+});
+test('three audio startup timeouts stop cleanly',()=>{
+  const t=setup();t.context.startVoice();
+  for(let i=0;i<3;i++){t.sessions.at(-1).onstart();t.tick();if(i<2)t.tick();}
+  assert.equal(t.context.state.voice,false);assert.equal(t.sessions.length,3);assert.equal(t.timers.size,0);
+  assert.match(t.events.at(-1)[1],/did not capture microphone audio/);
+});
+test('audio arriving before service start remains ready and duplicate starts do not open another mic',()=>{
+  const t=setup();t.context.startVoice();t.sessions[0].onaudiostart();t.sessions[0].onstart();t.context.startVoice();
+  assert.match(t.events.at(-1)[1],/Microphone ready/);assert.equal(t.timers.size,0);assert.equal(t.sessions.length,1);
 });
 test('turning voice off cancels pending restart', () => {
   const t=setup();t.context.startVoice();t.sessions[0].onend();t.context.stopVoice();t.tick();

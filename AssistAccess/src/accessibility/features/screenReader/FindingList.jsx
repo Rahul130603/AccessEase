@@ -29,7 +29,7 @@ const SEVERITY_COPY = {
  *  - The status line is plain text without a live region: the announcement goes
  *    through the shared service, so the message is never spoken twice.
  */
-export default function FindingList({ findings, emptyMessage, className = '' }) {
+export default function FindingList({ findings, emptyMessage, className = '', compact=false }) {
   const { strings } = useA11ySettings();
   const audit = useAudit();
   const announce = useAnnounce();
@@ -115,7 +115,7 @@ export default function FindingList({ findings, emptyMessage, className = '' }) 
                 ) : null}
               </div>
 
-              {example ? (
+              {example && !compact ? (
                 <details className="a11ytb-details">
                   <summary className="a11ytb-details__summary">{copy.howToFix}</summary>
                   <p className="a11ytb-details__title">{example.title}</p>

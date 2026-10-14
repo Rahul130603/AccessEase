@@ -1,0 +1,25 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {JSDOM}=require('jsdom');
+test('magnifier keeps paragraph flow, bounds passages, and ignores logos and images',()=>{
+ const dom=new JSDOM('<body><main><p id="copy">Start <strong id="bold">with curiosity</strong> and continue learning.</p><p id="long">'+Array.from({length:100},(_,i)=>'word'+i).join(' ')+'</p><a class="site-logo" id="logo">Brand name</a><img id="image" alt="Brand logo"></main><div id="host"></div></body>',{runScripts:'outside-only',pretendToBeVisual:true});
+ const w=dom.window;
+ const shadow=w.document.querySelector('#host').attachShadow({mode:'open'});
+ shadow.innerHTML='<div class="guide"></div><div class="mask"></div><section class="magnifier" hidden><p class="magnifier-text"></p></section><button class="overlay-close"></button><div class="reading-size-controls"></div><input data-setting="maskHeight"><output data-output="maskHeight"></output><button data-reading-key="maskHeight" data-reading-step="1"></button>';
+ let render;
+ w.requestAnimationFrame=fn=>{render=fn;return 1};w.cancelAnimationFrame=()=>{};
+ w.Range.prototype.getClientRects=()=>[{left:0,right:100,bottom:100,top:0}];
+ const preview=shadow.querySelector('.magnifier-text');
+ Object.defineProperties(preview,{clientHeight:{get:()=>40},scrollHeight:{get:()=>Math.ceil(preview.textContent.length/40)*20},clientWidth:{get:()=>400},scrollWidth:{get:()=>400}});
+ let source=fs.readFileSync(require('path').join(__dirname,'../visual-accessibility-widget/src/engine/readingEngine.js'),'utf8').replace(/^import .*;\s*/,'').replace('export function','function');
+ w.eval('const maskSizeLimit=()=>500;'+source+';window.makeReadingEngine=createReadingEngine;');
+ const engine=w.makeReadingEngine({shadow,root:w.document.querySelector('main'),update(){}});
+ engine.apply({magnifier:true,maskHeight:120,zoomLevel:1.5,fontScale:1,guideHeight:8});
+ const hover=id=>{w.document.getElementById(id).dispatchEvent(new w.MouseEvent('pointermove',{bubbles:true,clientX:10,clientY:10}));render();};
+ hover('bold');assert.equal(preview.textContent,'Start with curiosity and continue learning.');assert.equal(shadow.querySelector('.magnifier').hidden,false);
+ hover('long');assert.ok(preview.textContent.startsWith('word0 word1'));assert.ok(preview.textContent.length<100);assert.ok(preview.scrollHeight<=preview.clientHeight);
+ hover('logo');assert.equal(shadow.querySelector('.magnifier').hidden,true);
+ hover('image');assert.equal(shadow.querySelector('.magnifier').hidden,true);
+ engine.destroy();dom.window.close();
+});

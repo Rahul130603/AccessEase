@@ -3,3 +3,5 @@
 !nginx.conf
 !dist/
 !dist/**
+!server/
+!server/**

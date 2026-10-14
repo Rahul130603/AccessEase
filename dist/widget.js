@@ -3,10 +3,13 @@
   if (document.getElementById('accessease-widget')) return;
   const key = 'accessease.preferences.v1';
   const defaults = {speech:false,rate:1,align:'original',simple:false,highlight:false,keyboard:false,focus:false,skip:false,targets:false,voice:false,switches:false,sticky:false,captions:false};
+  const readingRates = [.75,1,1.1,1.25,1.5];
+  // Keep older saved/exported 2x preferences usable at the gentler maximum.
+  function normalizeReadingRate(rate){return rate===2?1.5:readingRates.includes(rate)?rate:1;}
   let saved = {}; try { saved = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch {}
   const state = {...defaults};
   for (const name of Object.keys(defaults)) if (typeof saved[name] === typeof defaults[name]) state[name] = saved[name];
-  if (![.75,1,1.25,1.5,2].includes(state.rate)) state.rate = 1;
+  state.rate = normalizeReadingRate(state.rate);
   if (!['original','left','center','right','justify'].includes(state.align)) state.align = 'original';
   state.speech = state.voice = state.switches = false;
   const host = document.createElement('div'); host.id = 'accessease-widget'; document.body.prepend(host);
@@ -14,11 +17,11 @@
   host.setAttribute('data-uaw-ignore','');
   host.setAttribute('data-a11ytb-host','');
   let teamExtension = null;
-  const badgeURL = new URL('accessibility-badge.png', document.currentScript.src).href;
-  const symbol = `<img src="${badgeURL}" alt="" aria-hidden="true" class="badge">`;
+  const badgeURL = new URL('accessibility-badge.png?v=20261014-uploaded-logo', document.currentScript?.src || document.baseURI).href;
+  const symbol = `<img class="badge" src="${badgeURL}" alt="" aria-hidden="true">`;
   root.innerHTML = `<style>
   :host{all:initial;font-family:Inter,Arial,sans-serif;color:#0f172a;font-size:14px;line-height:1.5;--blue:#2563eb;--muted:#64748b;--border:#e2e8f0;--bg:#f1f5f9;--white:#fff;--navy:#092644}*{box-sizing:border-box}button,select{font:inherit}button{cursor:pointer}button:focus-visible,select:focus-visible{outline:3px solid var(--blue);outline-offset:3px}[hidden]{display:none!important}.launcher{position:fixed;right:25px;bottom:25px;width:65px;height:65px;border-radius:99px;border:0;background:var(--blue);color:var(--white);box-shadow:0 4px 12px rgba(40,116,178,.25);display:grid;place-items:center;z-index:2147483647;transition:transform .2s}.launcher:hover{transform:translateY(-3px);background:var(--navy)}svg{width:30px;height:30px}.hint{position:fixed;bottom:45px;right:105px;background:var(--white);padding:10px 15px;border:1px solid var(--border);border-radius:9px;box-shadow:0 4px 12px rgba(9,38,68,.2);font-size:12px;z-index:2147483646}.panel{position:fixed;right:25px;bottom:105px;width:400px;max-width:calc(100vw - 30px);max-height:calc(100dvh - 130px);background:var(--white);border:1px solid var(--border);border-radius:20px;box-shadow:0 8px 20px rgba(0,0,0,.18);z-index:2147483647;display:flex;flex-direction:column;overflow:hidden;animation:appear .2s ease-out}.top{padding:20px 25px;background:var(--navy);color:var(--white);display:flex;align-items:center;gap:15px}.top .logo{width:40px;height:40px;background:var(--blue);border-radius:9px;display:grid;place-items:center}.top h2{font-size:20px;line-height:1.2;margin:0 0 5px}.top p{font-size:11px;margin:0;color:#bfdbfe}.close{margin-left:auto;background:transparent;border:1px solid #64748b;color:var(--white);width:30px;height:30px;border-radius:9px;font-size:20px}.intro{padding:15px 25px 0;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted)}.count{color:var(--blue);background:#eff6ff;border-radius:99px;padding:5px 10px;font-weight:600}.body{overflow:auto;padding:0 20px 15px;overscroll-behavior:contain}.category{font-size:10px;letter-spacing:1.5px;color:var(--muted);margin:20px 5px 10px;font-weight:700}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tile{border:1px solid var(--border);border-radius:9px;background:var(--white);padding:15px 10px;text-align:left;min-height:100px;position:relative;color:#0f172a}.tile:hover{background:var(--bg)}.tile[aria-pressed=true]{border-color:var(--blue);background:#eff6ff}.tile .icon{display:block;color:var(--blue);font-size:21px;line-height:1;margin-bottom:10px}.tile strong{display:block;font-size:12px;line-height:1.4;padding-right:10px;font-weight:600}.tile small{display:block;color:var(--muted);font-size:10px;margin-top:5px;line-height:1.4}.tile[aria-pressed=true]:after{content:'✓';position:absolute;top:10px;right:10px;color:var(--blue);font-weight:700}.select-row{border:1px solid var(--border);border-radius:9px;padding:10px 15px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}.select-row label{font-size:12px;font-weight:600}.select-row small{display:block;font-size:10px;color:var(--muted);font-weight:400}.select-row select{max-width:140px;background:var(--bg);color:#0f172a;border:1px solid var(--border);border-radius:5px;padding:5px;font-size:12px}.footer{border-top:1px solid var(--border);padding:15px 20px}.status{font-size:11px;color:var(--muted);margin:0 0 10px;line-height:1.5;min-height:17px}.reset{width:100%;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:#0f172a;padding:10px;font-size:12px;font-weight:600}.footnote{font-size:9px;color:var(--muted);text-align:center;margin:10px 0 0}.skip{position:fixed;left:15px;top:15px;transform:translateY(-150%);background:var(--blue);color:var(--white);border:0;padding:15px 20px;border-radius:9px;z-index:2147483647}.skip:focus{transform:none}@keyframes appear{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@media(max-width:500px){.launcher{right:15px;bottom:15px;width:60px;height:60px}.panel{right:15px;bottom:90px;max-height:calc(100dvh - 110px)}.hint{display:none}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  .badge{display:block;width:100%;height:100%;object-fit:contain}.launcher,.launcher:hover{background:transparent;padding:0}.top .logo{background:transparent}.panel{height:calc(100dvh - 130px)}.top,.intro,.footer{flex-shrink:0}.body{flex:1 1 auto;min-height:0}@media(max-width:500px){.panel{height:calc(100dvh - 110px)}}
+  .badge{display:block;width:100%;height:100%;object-fit:contain;border-radius:50%}.launcher,.launcher:hover{background:transparent;padding:0}.top .logo{background:transparent}.panel{height:calc(100dvh - 130px)}.top,.intro,.footer{flex-shrink:0}.body{flex:1 1 auto;min-height:0}@media(max-width:500px){.panel{height:calc(100dvh - 110px)}}
   .panel{width:740px;height:auto;max-height:calc(100dvh - 130px);border-radius:20px}.top{padding:20px 25px;gap:15px}.top .logo{width:45px;height:45px;flex-shrink:0}.top h2{font-size:22px;margin-bottom:5px}.top p{font-size:12px}.close{width:40px;height:40px;flex-shrink:0;display:grid;place-items:center;font-size:24px}.intro{padding:20px 25px 15px;gap:15px;flex-wrap:wrap;font-size:14px;color:#0f172a}.intro-title{font-weight:600}.intro-summary{display:flex;align-items:center;gap:10px}.total{font-size:12px;color:var(--muted)}.count{font-size:12px}.body{padding:0 25px 20px;scrollbar-width:thin}.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.tile{display:grid;align-content:start;gap:5px;min-height:90px;padding:15px;border-radius:10px;transition:border-color .15s,background .15s}.tile:hover{border-color:var(--blue);background:var(--bg)}.tile .icon{margin:0;font-size:20px;line-height:1;display:flex;align-items:center;height:20px}.icon svg{width:20px;height:20px;flex-shrink:0}.tile strong{padding:0;font-size:13px;line-height:1.3}.tile small{font-size:11px;line-height:1.4;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tile[aria-pressed=true]:after{width:20px;height:20px;display:grid;place-items:center;border-radius:99px;background:var(--blue);color:var(--white);font-size:12px;top:10px;right:10px}.tile[data-setting=captions]{grid-column:1/-1;min-height:65px;grid-template-columns:30px 1fr;align-content:center;column-gap:10px}.tile[data-setting=captions] .icon{grid-row:1/3;align-self:center}.tile[data-setting=captions] strong,.tile[data-setting=captions] small{grid-column:2}.tile[data-setting=captions]:after{top:20px;right:15px}.select-row{display:block;min-height:90px;margin:0;padding:15px;border-radius:10px}.select-row label{font-size:13px;line-height:1.3}.select-row .icon{display:flex;height:20px;color:var(--blue);margin-bottom:5px}.select-row small{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.select-row select{display:block;margin-top:10px;max-width:none;width:100%;min-height:35px;padding:5px 10px;border-radius:5px;font-size:12px}.select-row[data-active=true]{border-color:var(--blue);background:#eff6ff}.footer{padding:15px 25px;background:var(--bg)}.footer-actions{display:flex;align-items:center;justify-content:space-between;gap:20px}.status{margin:0;font-size:12px;min-height:0;max-height:60px;overflow:auto;flex:1}.reset{width:auto;min-width:145px;min-height:40px;background:var(--white);white-space:nowrap;font-size:12px;padding:10px 15px}.reset:hover{border-color:var(--blue);color:var(--blue)}.footnote{text-align:left;font-size:10px;margin-top:10px}
   @media(min-width:801px) and (max-height:850px){.top{padding:15px 25px}.intro{padding-top:15px;padding-bottom:10px}.body{padding-bottom:15px}.tile,.select-row{padding:10px 15px;min-height:80px}.tile[data-setting=captions]{min-height:55px}.tile[data-setting=captions]:after{top:15px}.footer{padding:10px 25px}.select-row select{margin-top:5px}}
   @media(min-width:801px) and (max-height:700px){.tile small{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.tile{min-height:65px}.tile[data-setting=captions]{min-height:50px}.tile[data-setting=captions] .icon{grid-row:1}.top .logo{width:35px;height:35px}.top p,.footnote{display:none}}
@@ -28,10 +31,10 @@
   @media(max-width:500px){.panel{--panel-side:min(650px,calc(100vw - 30px),calc(100dvh - 110px));width:var(--panel-side);height:calc(100dvh - 105px);max-height:calc(100dvh - 105px)}}
   @container(max-width:540px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.top,.intro,.footer{padding-left:20px;padding-right:20px}.body{padding-left:20px;padding-right:20px}.tile,.select-row{padding:10px}.tile strong,.select-row label{font-size:12px}.footer-actions{gap:10px}.status{min-width:0;font-size:11px}.reset{min-width:120px;font-size:11px}}
   @container(max-width:400px){.top{gap:10px;padding-top:15px;padding-bottom:15px}.top .logo{width:35px;height:35px}.top h2{font-size:20px;margin:0}.top p{display:none}.intro{gap:5px;padding-top:10px;padding-bottom:10px;font-size:12px}.tile small{font-size:10px}.footer{padding-top:10px;padding-bottom:10px}.footnote{font-size:9px}}
-  </style><button class="skip" hidden>Skip to main content</button><div class="hint">Make this page yours <span aria-hidden="true">↘</span></div><button class="launcher" aria-label="Open accessibility settings" aria-expanded="false" aria-controls="ae-panel">${symbol}</button>
-  <section class="panel" id="ae-panel" aria-label="Accessibility settings" hidden><div class="top"><div class="logo">${symbol}</div><div><h2>AccessEase</h2><p>Your page. Your pace. Your preferences.</p></div><button class="close" aria-label="Close accessibility settings">×</button></div><div class="intro"><span class="intro-title">Choose what works for you</span><span class="intro-summary"><span class="total">13 settings</span><span class="count">0 active</span></span></div><div class="body"><div class="grid">
-  ${tile('speech','speech','Text-to-Speech','Drag to highlight the text you want to hear')}${tile('simple','simple','Simplified Text Mode','Use available plain-language text')}
-  <div class="select-row"><label for="rate"><span class="icon" aria-hidden="true">${settingIcon('rate')}</span>Adjustable Reading Speed<small>Speed of the voice reader</small></label><select id="rate"><option value="0.75">0.75× · Slower</option><option value="1">1× · Normal</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2× · Faster</option></select></div>
+  </style><button class="skip" hidden>Skip to main content</button><div class="hint">Make this page yours <span aria-hidden="true">↘</span></div><button class="launcher" aria-label="Open accessibility settings" aria-expanded="false" aria-controls="ae-panel"><img class="badge launcher-badge" src="${badgeURL}" alt="" aria-hidden="true"></button>
+  <section class="panel" id="ae-panel" aria-label="Accessibility settings" hidden><div class="top"><div class="logo">${symbol}</div><div><h2>AccessEase</h2><p>Your page. Your pace. Your preferences.</p></div><button class="close" aria-label="Close accessibility settings">×</button></div><div class="intro"><span class="intro-title">Choose what works for you</span><span class="intro-summary" hidden><span class="total">13 settings</span><span class="count">0 active</span></span></div><div class="body"><div class="grid">
+  ${tile('speech','speech','Text-to-Speech','Drag to highlight the text you want to hear')}${tile('simple','simple','Simplified Text Mode','Use clearer wording across the page')}
+  <div class="select-row"><label for="rate"><span class="icon" aria-hidden="true">${settingIcon('rate')}</span>Adjustable Reading Speed<small>Speed of the voice reader</small></label><select id="rate"><option value="0.75">0.75× · Slower</option><option value="1">1× · Normal</option><option value="1.1">1.1× · Slightly faster</option><option value="1.25">1.25×</option><option value="1.5">1.5× · Faster</option></select></div>
   <div class="select-row"><label for="align"><span class="icon" aria-hidden="true">${settingIcon('align')}</span>Text Alignment<small>Adjust all page text</small></label><select id="align"><option value="original">Original</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option><option value="justify">Justify</option></select></div>
   ${tile('highlight','highlight','Paragraph Highlighting','Highlight a paragraph on hover')}${tile('keyboard','keyboard','Keyboard Navigation','Move through text and controls')}
   ${tile('focus','focus','Visible Keyboard Focus','Make the focused control stand out')}${tile('skip','skip','Skip to Main Content','Add a skip link · Press Tab')}${tile('targets','targets','Large Click Targets','Give buttons and links more space')}
@@ -47,43 +50,94 @@
   const focusStyle=document.createElement('style');root.append(focusStyle);
   const targetStyle=document.createElement('style');root.append(targetStyle);
   const launcher=root.querySelector('.launcher'), panel=root.querySelector('.panel');
+  const voiceIndicator=document.createElement('div');voiceIndicator.className='voice-indicator';voiceIndicator.hidden=true;
+  voiceIndicator.innerHTML='<span class="voice-indicator-text" role="status" aria-live="polite"></span><button type="button" aria-label="Stop voice commands">Stop</button>';
+  root.append(voiceIndicator);
+  const voiceStyle=document.createElement('style');voiceStyle.textContent='.voice-indicator{position:fixed;right:100px;bottom:25px;z-index:2147483646;max-width:min(310px,calc(100vw - 120px));display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #bfdbfe;border-radius:12px;background:#fff;color:#092644;box-shadow:0 6px 20px #09264424;pointer-events:auto;font:12px/1.5 Inter,Arial,sans-serif}.voice-indicator button{flex-shrink:0;padding:6px 10px;border:1px solid #bfdbfe;border-radius:7px;background:#eff6ff;color:#1749b9}.voice-indicator[hidden]{display:none!important}.panel .tile[data-setting=voice][data-voice-phase=starting]:after,.panel .tile[data-setting=voice][data-voice-phase=permission]:after,.panel .tile[data-setting=voice][data-voice-phase=reconnecting]:after{border-color:#d97706;background:radial-gradient(circle at 24px 10px,#fff 0 7px,transparent 8px),#d97706}';root.append(voiceStyle);
+  function setVoicePhase(phase,message){
+    const tile=root.querySelector('[data-setting="voice"]');tile.dataset.voicePhase=phase;
+    tile.querySelector('small').textContent=({permission:'Allow microphone access to start',starting:'Starting microphone…',listening:'Listening · say “scroll down”',reconnecting:'Reconnecting microphone…',error:'Microphone unavailable · check the message below'})[phase]||'Speak commands · Microphone needed';
+    if(message)voiceIndicator.querySelector('span').textContent=message;
+    voiceIndicator.hidden=!state.voice||!panel.hidden;
+  }
+  voiceIndicator.querySelector('button').addEventListener('click',()=>{stopVoice();apply();status('Voice Commands disabled.');});
+  const voiceInput=document.createElement('label');voiceInput.className='voice-input';voiceInput.hidden=true;
+  voiceInput.style.setProperty('display','none','important');
+  voiceInput.append(document.createTextNode('Voice microphone '));
+  const voiceInputSelect=document.createElement('select');voiceInputSelect.setAttribute('aria-label','Voice microphone');voiceInput.append(voiceInputSelect);
+  root.querySelector('.footer').prepend(voiceInput);
+  voiceStyle.textContent+='.voice-input{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:12px/1.5 Inter,Arial,sans-serif}.voice-input select{min-width:0;flex:1;max-width:100%;padding:7px;border:1px solid #bfdbfe;border-radius:6px;background:#fff;color:#092644}';
+  voiceInputSelect.addEventListener('change',()=>{
+    voiceDeviceId=voiceInputSelect.value;
+    if(state.voice){stopVoice();state.voice=true;startVoice();apply();}
+  });
   let recognition=null, scanned=null, scanIndex=-1, readingIndex=0, sentences=[], speechGeneration=0, selectedReadingText='';
-  const originals=new Map(); const simpleNodes=new Map(); const simplePlaceholders=new Map(); const readingTabIndexes=new Map(); const latched=new Set();
-  const simpleWording=window.AccessEaseSimpleText||{};
+  const simpleNodes=new Map(); const simpleAttributes=new Map(); const readingTabIndexes=new Map(); const latched=new Set();
+  const simpleWording=new Map(Object.entries(window.AccessEaseSimpleText||{}).filter(([,text])=>typeof text==='string'&&text.trim()).map(([text,plain])=>[text.trim().replace(/\s+/g,' '),plain]));
+  const plainPhrases=[
+    ['in order to','to'],['due to the fact that','because'],['in the event that','if'],
+    ['at this point in time','now'],['has the ability to','can'],['have the ability to','can'],
+    ['is able to','can'],['are able to','can'],['a sufficient number of','enough'],
+    ['a large number of','many'],['a small number of','a few'],['on a daily basis','each day'],
+    ['in close proximity to','near'],['prior to','before'],['subsequent to','after'],
+    ['utilize','use'],['utilizes','uses'],['utilized','used'],['utilizing','using'],
+    ['approximately','about'],['commence','start'],['commences','starts'],['commenced','started'],
+  ].map(([phrase,plain])=>[new RegExp(`\\b${phrase.replace(/ /g,'\\s+')}\\b`,'gi'),plain]);
+  const simpleExcluded='script,style,noscript,template,code,pre,kbd,samp,svg,math,select,#accessease-widget,[contenteditable]:not([contenteditable="false"]),[data-simple-ignore],[translate="no"]';
+  function plainText(text,parent,provided){
+    const wording=text.trim();if(!wording)return text;
+    const authored=provided||simpleWording.get(wording.replace(/\s+/g,' '));
+    if(typeof authored==='string'&&authored.trim())return text.replace(wording,()=>authored);
+    // Conservative phrase changes only: keep facts, complete sentences and other languages.
+    const language=parent.closest('[lang]')?.getAttribute('lang')||document.documentElement.lang||'en';
+    if(!/^en(?:-|$)/i.test(language))return text;
+    let plain=text;
+    for(const [pattern,replacement] of plainPhrases)plain=plain.replace(pattern,match=>match===match.toUpperCase()?replacement.toUpperCase():/^[A-Z]/.test(match)?replacement[0].toUpperCase()+replacement.slice(1):replacement);
+    return plain;
+  }
   function applySimpleText(){
-    document.querySelectorAll('[data-simple]').forEach(el=>{
-      if(!originals.has(el))originals.set(el,{html:el.innerHTML,text:el.textContent});
-      const original=originals.get(el);
-      if(state.simple){if(el.textContent!==el.dataset.simple)el.textContent=el.dataset.simple;}
-      else if(el.textContent!==original.text)el.innerHTML=original.html;
-    });
-    document.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(el=>{
-      if(!simplePlaceholders.has(el))simplePlaceholders.set(el,el.getAttribute('placeholder'));
-      const original=simplePlaceholders.get(el);
-      const desired=state.simple?(simpleWording[original]||original):original;
-      if(el.getAttribute('placeholder')!==desired)el.setAttribute('placeholder',desired);
-    });
+    if(!state.simple){
+      simpleNodes.forEach(({original,applied},node)=>{if(node.isConnected&&node.nodeValue===applied)node.nodeValue=original;});
+      simpleAttributes.forEach((attributes,el)=>{if(el.isConnected)attributes.forEach(({original,applied},name)=>{if(el.getAttribute(name)===applied)el.setAttribute(name,original);});});
+      simpleNodes.clear();simpleAttributes.clear();return;
+    }
+    simpleNodes.forEach((record,node)=>{if(!node.isConnected)simpleNodes.delete(node);});
+    simpleAttributes.forEach((record,el)=>{if(!el.isConnected)simpleAttributes.delete(el);});
     const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
     let node;
     while((node=walker.nextNode())){
       const parent=node.parentElement;
-      if(!parent||parent.closest('script,style,noscript,[data-simple],#accessease-widget,[contenteditable="true"]'))continue;
-      const original=simpleNodes.has(node)?simpleNodes.get(node):node.nodeValue;
-      const plain=simpleWording[original.trim()];
-      if(typeof plain!=='string')continue;
-      if(!simpleNodes.has(node))simpleNodes.set(node,original);
-      const desired=state.simple?original.replace(original.trim(),plain):original;
+      if(!parent||parent.closest(`${simpleExcluded},textarea`))continue;
+      const record=simpleNodes.get(node);
+      const original=record&&node.nodeValue===record.applied?record.original:node.nodeValue;
+      // A whole-block alternative is safe only for a plain text block. Never remove
+      // inline links, emphasis, icons or their event listeners to replace its words.
+      const provided=parent.hasAttribute('data-simple')&&parent.childNodes.length===1?parent.dataset.simple:undefined;
+      const desired=plainText(original,parent,provided);
+      if(desired!==original)simpleNodes.set(node,{original,applied:desired});else simpleNodes.delete(node);
       if(node.nodeValue!==desired)node.nodeValue=desired;
     }
+    document.querySelectorAll('[placeholder],[aria-label],[title],img[alt]').forEach(el=>{
+      if(el.closest(simpleExcluded))return;
+      let attributes=simpleAttributes.get(el)||new Map();
+      for(const name of ['placeholder','aria-label','title','alt']){
+        const current=el.getAttribute(name);if(current===null){attributes.delete(name);continue;}
+        const record=attributes.get(name),original=record&&current===record.applied?record.original:current;
+        const desired=plainText(original,el);
+        if(desired!==original)attributes.set(name,{original,applied:desired});else attributes.delete(name);
+        if(current!==desired)el.setAttribute(name,desired);
+      }
+      if(attributes.size)simpleAttributes.set(el,attributes);else simpleAttributes.delete(el);
+    });
   }
   function main(){return document.querySelector('main,[role="main"]')||document.body;}
   function persist(){try{localStorage.setItem(key,JSON.stringify({...state,speech:false,voice:false,switches:false}));}catch{}}
-  function status(message){root.querySelector('.status').textContent=message;}
-  function openPanel(open){panel.hidden=!open;launcher.setAttribute('aria-expanded',String(open));launcher.setAttribute('aria-label',open?'Close accessibility settings':'Open accessibility settings');root.querySelector('.hint').hidden=true;if(open){root.querySelector('.body').scrollTop=0;root.querySelector('.close').focus({preventScroll:true});}else launcher.focus({preventScroll:true});}
+  function status(message){root.querySelector('.status').textContent=message;if(state.voice&&panel.hidden)voiceIndicator.querySelector('span').textContent=message;}
+  function openPanel(open){panel.hidden=!open;launcher.setAttribute('aria-expanded',String(open));launcher.setAttribute('aria-label',open?'Close accessibility settings':'Open accessibility settings');root.querySelector('.hint').hidden=true;voiceIndicator.hidden=!state.voice||open;if(open){root.querySelector('.body').scrollTop=0;root.querySelector('.close').focus({preventScroll:true});}else launcher.focus({preventScroll:true});}
   launcher.addEventListener('click',()=>openPanel(panel.hidden));root.querySelector('.close').addEventListener('click',()=>openPanel(false));
   function goMain(){openPanel(false);const el=main();if(!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});el.scrollIntoView({behavior:'instant',block:'start'});}
   root.querySelector('.skip').addEventListener('click',goMain);
-  function controls(){const selector='a[href],button,input,select,textarea,summary,video[controls],audio[controls],[tabindex]';const modal=root.querySelector('dialog[open]')||document.querySelector('dialog[open]');return [...document.querySelectorAll(selector),...root.querySelectorAll(selector)].filter(el=>el!==host && (!modal||modal.contains(el)) && !el.disabled && el.tabIndex>=0 && !el.closest('[hidden],[inert],[aria-hidden="true"],svg,picture,img,.course-art,[role="img"]') && el.getClientRects().length && getComputedStyle(el).visibility!=='hidden');}
+  function controls(){const selector='a[href],button,input,select,textarea,summary,video[controls],audio[controls],[tabindex]';const modal=[...root.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]'),...document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]')].find(el=>!el.closest('[hidden],[inert]')&&el.getClientRects().length);return [...document.querySelectorAll(selector),...root.querySelectorAll(selector)].filter(el=>el!==host && (!modal||modal.contains(el)) && !el.disabled && el.getAttribute('aria-disabled')!=='true' && el.tabIndex>=0 && !el.closest('[hidden],[inert],[aria-hidden="true"],svg,picture,img,.course-art,[role="img"]') && el.getClientRects().length && getComputedStyle(el).visibility!=='hidden');}
   function focused(){return root.activeElement||document.activeElement;}
   function move(direction){const items=controls();if(!items.length)return;const current=items.indexOf(focused());const index=current<0?(direction>0?0:items.length-1):(current+direction+items.length)%items.length;items[index].focus();}
   function updateCaptions(){let tracks=0;document.querySelectorAll('video').forEach(v=>{for(const track of v.textTracks){if(['captions','subtitles'].includes(track.kind)){track.mode=state.captions?'showing':'disabled';tracks++;}}});return tracks;}
@@ -156,7 +210,67 @@
     if(state.speech&&selectedReadingText){startSpeech();apply();}
   });
   document.addEventListener('keyup',event=>{if(event.key==='Shift'&&state.speech&&captureSelection()){startSpeech();apply();}});
-  let voiceRestartTimer=null, voiceStartFailures=0;
+  function scrollVoice(amount,pageOnly=false){
+    let container=!pageOnly&&!panel.hidden?root.querySelector('.body'):null;
+    if(!container){
+      const scrollable=el=>el&&el!==host&&el.clientHeight>0&&el.scrollHeight>el.clientHeight&&/(auto|scroll|overlay)/.test(getComputedStyle(el).overflowY);
+      let active=document.activeElement;
+      while(active&&active!==document.body){if(scrollable(active)){container=active;break;}active=active.parentElement;}
+      const page=document.scrollingElement||document.documentElement;
+      if(!container&&page.scrollHeight<=window.innerHeight){
+        const candidates=[...document.querySelectorAll('main,[role="main"],section,article,div')].filter(el=>scrollable(el)&&!el.closest('[hidden],[inert],#accessease-widget')&&el.getClientRects().length);
+        candidates.sort((a,b)=>{const area=el=>{const r=el.getBoundingClientRect();return Math.max(0,Math.min(r.right,window.innerWidth)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,window.innerHeight)-Math.max(r.top,0));};return area(b)-area(a);});
+        container=candidates[0]||null;
+      }
+    }
+    if(container){if(typeof container.scrollBy==='function')container.scrollBy({top:amount,behavior:'auto'});else container.scrollTop+=amount;}
+    else window.scrollBy({top:amount,behavior:'auto'});
+  }
+  let voiceRestartTimer=null, voiceStartTimer=null, voiceStartFailures=0, voiceNetworkFailures=0;
+  let voiceInputStream=null,voiceInputRequest=0,voiceInputPending=false,voiceDeviceId='',voiceNativeInput=false;
+  function supportsVoiceInputTrack(){
+    // Chrome desktop 135+ supports SpeechRecognition.start(MediaStreamTrack).
+    const ua=window.navigator?.userAgent||'',version=ua.match(/\b(?:Chrome|Chromium)\/(\d+)/);
+    return !!(version&&Number(version[1])>=135&&!/Android/.test(ua)&&window.navigator.mediaDevices?.getUserMedia);
+  }
+  function stopVoiceInput(){
+    voiceInputRequest++;voiceInputPending=false;voiceInput.hidden=true;
+    if(voiceInputStream){for(const track of voiceInputStream.getTracks()){track.onended=null;track.stop();}voiceInputStream=null;}
+  }
+  async function openVoiceInput(API){
+    const request=++voiceInputRequest;voiceInputPending=true;
+    const media=window.navigator.mediaDevices;
+    let stream;
+    const discard=()=>{stream?.getTracks().forEach(track=>track.stop());};
+    const current=()=>request===voiceInputRequest&&state.voice;
+    setVoicePhase('starting','Opening microphone…');
+    try{
+      stream=await media.getUserMedia({audio:voiceDeviceId?{deviceId:{exact:voiceDeviceId}}:true});
+      if(!current()){discard();return;}
+      const devices=await media.enumerateDevices().catch(()=>[]);
+      if(!current()){discard();return;}
+      const inputs=devices.filter(device=>device.kind==='audioinput'&&device.deviceId!=='communications');
+      const virtual=label=>/virtual|hitpaw|cable|stereo mix|loopback/i.test(label);
+      // A silent virtual default cannot hear the user. Prefer an available physical input.
+      const physical=inputs.find(device=>device.deviceId!=='default'&&device.label&&!virtual(device.label));
+      if(!voiceDeviceId&&virtual(stream.getAudioTracks()[0]?.label||'')&&physical){
+        discard();stream=await media.getUserMedia({audio:{deviceId:{exact:physical.deviceId}}});
+        if(!current()){discard();return;}
+      }
+      const track=stream.getAudioTracks()[0];
+      if(!track||track.readyState!=='live')throw new Error('Microphone track is not live');
+      voiceInputStream=stream;voiceInputPending=false;
+      voiceInputSelect.replaceChildren();
+      for(const device of inputs){const option=document.createElement('option');option.value=device.deviceId;option.textContent=device.label||'Microphone';voiceInputSelect.append(option);}
+      const deviceId=track.getSettings().deviceId;
+      if(![...voiceInputSelect.options].some(option=>option.value===deviceId)){
+        const option=document.createElement('option');option.value=deviceId||'';option.textContent=track.label||'Current microphone';voiceInputSelect.append(option);
+      }
+      voiceInputSelect.value=deviceId||'';
+      track.onended=()=>{if(voiceInputStream!==stream||!state.voice)return;stopVoice();apply();setVoicePhase('error');status('The selected microphone disconnected. Reconnect it, then turn Voice Commands on again.');};
+      beginVoiceRecognition(API);
+    }catch(error){discard();if(current()){voiceInputPending=false;voiceMicrophoneError(error);}}
+  }
   function normalizeVoiceText(text){return text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,' ').trim().replace(/\s+/g,' ');}
   function voiceControlName(el){
     const labelledBy=el.getAttribute('aria-labelledby');
@@ -164,35 +278,49 @@
     return el.getAttribute('aria-label')||label||el.querySelector('strong')?.textContent||
       (el.labels?[...el.labels].map(label=>label.textContent).join(' '):'')||el.textContent||el.getAttribute('title')||el.getAttribute('value')||'';
   }
-  function clickableControls(){return controls().filter(el=>el.matches('a[href],button,input,select,textarea,summary,[role="button"],[role="link"]'));}
+  function voiceControlNames(el){
+    const visible=[...el.childNodes||[]].filter(node=>node.nodeType!==1||node.getAttribute('aria-hidden')!=='true'&&node.tagName!=='SVG').map(node=>node.textContent).join(' ');
+    return [...new Set([voiceControlName(el),el.querySelector('strong')?.textContent,el.matches('summary')?el.querySelector('span:nth-child(2)')?.textContent:'',el.getAttribute('title'),visible].filter(Boolean).map(normalizeVoiceText))];
+  }
+  function clickableControls(){return controls().filter(el=>el.matches('a[href],button,input,select,textarea,summary,[role="button"],[role="link"],[role="switch"],[role="checkbox"]'));}
   function clickNamedVoiceControl(name){
     let target=normalizeVoiceText(name), ordinal=null;
-    const position=target.match(/^(first|second|third|last)\s+(.+)$/);
-    if(position){ordinal=position[1];target=position[2];}
     const candidates=clickableControls();
-    let matches=candidates.filter(el=>normalizeVoiceText(voiceControlName(el))===target);
+    let matches=candidates.filter(el=>voiceControlNames(el).includes(target));
     // Allow “click the Start learning button” while preserving names containing “button”.
-    if(!matches.length){target=target.replace(/^the\s+/,'').replace(/\s+(button|link)$/,'');matches=candidates.filter(el=>normalizeVoiceText(voiceControlName(el))===target);}
+    if(!matches.length){target=target.replace(/^the\s+/,'').replace(/\s+(button|link)$/,'');
+      const position=target.match(/^(first|second|third|last)\s+(.+)$/);if(position){ordinal=position[1];target=position[2];}
+      matches=candidates.filter(el=>voiceControlNames(el).includes(target));
+    }
+    if(!matches.length&&target)matches=candidates.filter(el=>voiceControlNames(el).some(label=>` ${label} `.includes(` ${target} `)));
     if(ordinal){const index=ordinal==='last'?matches.length-1:{first:0,second:1,third:2}[ordinal];matches=matches[index]?[matches[index]]:[];}
     if(!matches.length){status(`No available button or link named “${name}”. Say “click” followed by the name shown on the page.`);return null;}
     if(matches.length>1){status(`Found ${matches.length} items named “${name}”. Say “click first ${target}” or “click second ${target}”.`);return null;}
     const el=matches[0], label=voiceControlName(el).trim();
-    el.focus();el.click();return label;
+    if(!root.contains(el)&&!panel.hidden)openPanel(false);
+    el.scrollIntoView?.({block:'center',inline:'nearest',behavior:'auto'});el.focus();el.click();return label;
+  }
+  function releaseVoiceSession(session){
+    clearTimeout(voiceStartTimer);voiceStartTimer=null;
+    if(recognition===session)recognition=null;
+    if(session){session.onstart=session.onaudiostart=session.onsoundstart=session.onspeechstart=session.onresult=session.onerror=session.onend=session.onnomatch=null;try{session.abort();}catch{}}
   }
   function stopVoice(){
-    state.voice=false;clearTimeout(voiceRestartTimer);voiceRestartTimer=null;
-    const session=recognition;recognition=null;
-    if(session){session.onstart=session.onresult=session.onerror=session.onend=null;try{session.abort();}catch{}}
+    state.voice=false;voiceNetworkFailures=0;
+    clearTimeout(voiceRestartTimer);clearTimeout(voiceStartTimer);voiceRestartTimer=voiceStartTimer=null;
+    releaseVoiceSession(recognition);
+    stopVoiceInput();
+    setVoicePhase('off','Microphone off.');
   }
   function runVoiceCommand(transcript){
-    const text=normalizeVoiceText(transcript).replace(/^please\s+|\s+please$/g,'');
+    const text=normalizeVoiceText(transcript).replace(/^(?:hey\s+)?access\s*ease\s+/,'').replace(/^(?:can|could|would|will)\s+you\s+/,'').replace(/^please\s+|\s+please$/g,'');
     let action='';
-    if(['scroll down','down'].includes(text)){window.scrollBy({top:450,behavior:'auto'});action='Scrolled down';}
-    else if(['scroll up','up'].includes(text)){window.scrollBy({top:-450,behavior:'auto'});action='Scrolled up';}
+    if(/^(?:scroll|move|go) (?:the )?(?:page |screen )?down(?: (?:the )?(?:page|screen))?$/.test(text)||['down','page down'].includes(text)){scrollVoice(450,/\b(page|screen)\b/.test(text));action='Scrolled down';}
+    else if(/^(?:scroll|move|go) (?:the )?(?:page |screen )?up(?: (?:the )?(?:page|screen))?$/.test(text)||['up','page up'].includes(text)){scrollVoice(-450,/\b(page|screen)\b/.test(text));action='Scrolled up';}
     else if(['next','next item','next control'].includes(text)){move(1);action='Moved to the next item';}
     else if(['previous','previous item','previous control','back'].includes(text)){move(-1);action='Moved to the previous item';}
-    else if(/^(click|select|activate)\s+/.test(text)){const label=clickNamedVoiceControl(text.replace(/^(click|select|activate)\s+(?:on\s+)?/,''));if(label===null)return;action=`Activated “${label}”`;}
-    else if(['click','select','activate'].includes(text)){const el=focused();if(!clickableControls().includes(el)){status('Say “click” followed by a button or link name, for example “click Keyboard Navigation”.');return;}el.click();action='Activated the focused item';}
+    else if(/^(click|select|activate|press|tap)\s+/.test(text)){const label=clickNamedVoiceControl(text.replace(/^(click|select|activate|press|tap)\s+(?:on\s+)?/,''));if(label===null)return;action=`Activated “${label}”`;}
+    else if(['click','select','activate','press','tap'].includes(text)){const el=focused();if(!clickableControls().includes(el)){status('Say “click” followed by a button or link name, for example “click Save bookmark”.');return;}el.click();action='Activated the focused item';}
     else if(['read selected text','read selection','read page'].includes(text)){captureSelection();if(!selectedReadingText){status('Highlight the text first, then say “read selected text”.');return;}startSpeech();apply();action='Reading selected text';}
     else if(text==='stop reading'){stopSpeech();apply();action='Stopped reading';}
     else if(text==='close settings'){openPanel(false);action='Closed settings';}
@@ -201,45 +329,116 @@
     else if(['stop listening','voice off'].includes(text)){stopVoice();apply();status('Voice Commands disabled.');return;}
     else{status(`Heard “${transcript.trim()}”, but no matching command. Say “scroll down”, “next”, “click”, or “open settings”.`);return;}
     // Clicking Voice Commands or Reset can disable the session; keep that status intact.
-    if(state.voice)status(`Heard “${transcript.trim()}”. ${action}. Listening for your next command.`);
+    if(state.voice){status(`Heard “${transcript.trim()}”. ${action}. Listening for your next command.`);setVoicePhase('listening',`${action}. Listening for your next command.`);}
   }
-  function queueVoiceRestart(){
+  function queueVoiceRestart(delay=200){
     if(!state.voice)return;
     clearTimeout(voiceRestartTimer);
-    voiceRestartTimer=setTimeout(()=>{voiceRestartTimer=null;if(state.voice)startVoice(true);},700);
+    voiceRestartTimer=setTimeout(()=>{voiceRestartTimer=null;if(state.voice)startVoice(true);},delay);
   }
   function startVoice(restarting=false){
+    if(!state.voice||recognition||voiceInputPending)return;
+    clearTimeout(voiceRestartTimer);voiceRestartTimer=null;
     const API=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!API){state.voice=false;status('Voice commands are unavailable here. Try Chrome or Edge.');return;}
-    if(recognition)return;
-    if(!restarting){voiceStartFailures=0;status('Waiting for the microphone. Allow microphone access when your browser asks.');}
-    const session=new API();recognition=session;
-    session.continuous=true;session.interimResults=false;session.lang='en-US';
-    session.onstart=()=>{if(recognition!==session||!state.voice)return;voiceStartFailures=0;status('Microphone ready. Listening: say “scroll down”, “next”, “click”, or “open settings”.');};
+    if(!API){stopVoice();apply();setVoicePhase('error');status('Voice commands are unavailable here. Open this page in Google Chrome with speech recognition support.');return;}
+    if(window.isSecureContext===false){stopVoice();apply();setVoicePhase('error');status('Microphone access needs HTTPS or localhost. Open this page on a secure address, then turn Voice Commands on again.');return;}
+    if(!restarting){voiceStartFailures=0;voiceNetworkFailures=0;voiceNativeInput=false;status('Starting microphone. Allow Chrome microphone access if prompted.');}
+    if(!voiceNativeInput&&supportsVoiceInputTrack()&&!voiceInputStream){openVoiceInput(API);return;}
+    beginVoiceRecognition(API);
+  }
+  function voiceMicrophoneError(error){
+    const messages={NotAllowedError:'Microphone access was denied. Allow the microphone in Chrome site settings, then turn Voice Commands on again.',SecurityError:'Microphone access was blocked. Check the browser site permissions.',NotFoundError:'No working microphone was found. Connect a microphone and check the browser input device.',NotReadableError:'The microphone could not open. Check your input device and close another app if it is using the microphone.'};
+    stopVoice();apply();setVoicePhase('error');status(messages[error?.name]||'Microphone access failed. Check the browser input device and try Voice Commands again.');
+  }
+  function beginVoiceRecognition(API){
+    let session;
+    try{session=new API();}catch{stopVoice();apply();setVoicePhase('error');status('The browser speech service could not open. Try Voice Commands in Google Chrome.');return;}
+    recognition=session;setVoicePhase('starting','Starting Chrome speech recognition…');
+    session.continuous=true;session.interimResults=true;session.lang='en-US';
+    let audioStarted=false;const handledResults=new Map();
+    function retry(message,delay=200){
+      releaseVoiceSession(session);
+      if(!state.voice)return;
+      setVoicePhase('reconnecting',message);status(message);queueVoiceRestart(delay);
+    }
+    function fallbackToNativeInput(){
+      if(!voiceInputStream||voiceNativeInput)return false;
+      // Chromium's version alone does not guarantee that track input works.
+      // Release our capture before letting recognition open the default input.
+      releaseVoiceSession(session);stopVoiceInput();voiceNativeInput=true;
+      setVoicePhase('reconnecting','Switching to the browser default microphone…');
+      status('Switching to the browser default microphone. Allow microphone access if prompted.');
+      queueVoiceRestart();return true;
+    }
+    function startupTimedOut(){
+      if(recognition!==session||!state.voice||audioStarted)return;
+      if(fallbackToNativeInput())return;
+      if(++voiceStartFailures<3){retry('Microphone is taking longer to start. Reconnecting automatically…');return;}
+      stopVoice();apply();setVoicePhase('error');status('Speech recognition did not capture microphone audio. Allow the microphone in browser site settings, select a working default input, then turn Voice Commands on again.');
+    }
+    session.onstart=()=>{
+      if(recognition!==session||!state.voice||audioStarted)return;
+      status('Speech service started. Waiting for microphone audio…');
+    };
+    session.onaudiostart=()=>{if(recognition!==session||!state.voice)return;audioStarted=true;clearTimeout(voiceStartTimer);voiceStartTimer=null;voiceStartFailures=0;setVoicePhase('listening','Listening · say “scroll down” or “click Save bookmark”.');status('Microphone ready. Listening: say “scroll down”, “click Save bookmark”, or “close settings”.');};
+    session.onsoundstart=()=>{if(recognition!==session||!state.voice)return;setVoicePhase('listening','Microphone hears sound. Listening for words…');status('Microphone hears sound. Listening for a command…');};
+    session.onspeechstart=()=>{if(recognition!==session||!state.voice)return;setVoicePhase('listening','Hearing your command…');status('Hearing speech. Waiting for the complete command…');};
+    session.onnomatch=()=>{if(recognition===session&&state.voice)status('Speech was heard but not understood. Try “scroll down” or “click Save bookmark”.');};
     session.onresult=e=>{
       if(recognition!==session||!state.voice)return;
       for(let i=e.resultIndex;i<e.results.length;i++){
-        if(e.results[i].isFinal)runVoiceCommand(e.results[i][0].transcript);
+        const result=e.results[i],transcript=result[0]?.transcript;
+        if(typeof transcript==='string'&&transcript.trim()){
+          audioStarted=true;clearTimeout(voiceStartTimer);voiceStartTimer=null;voiceStartFailures=0;
+          voiceNetworkFailures=0;
+          if(result.isFinal&&handledResults.get(i)!==transcript){handledResults.set(i,transcript);runVoiceCommand(transcript);}
+          else if(!result.isFinal)status(`Hearing “${transcript.trim()}”…`);
+        }
         if(!state.voice)break;
       }
     };
     session.onerror=e=>{
       if(recognition!==session||!state.voice)return;
-      if(e.error==='no-speech'){status('No speech heard yet. Still listening; say “scroll down”.');return;}
+      // Silence and temporary service interruptions must not switch off voice input.
+      // Retire the failed session before retrying, even if Chrome omits its end event.
+      if(e.error==='no-speech'||e.error==='aborted'){
+        if(!audioStarted){
+          if(fallbackToNativeInput())return;
+          if(++voiceStartFailures>=3){stopVoice();apply();setVoicePhase('error');status('Speech recognition repeatedly ended before microphone audio started. Check microphone permission and the browser default input, then turn Voice Commands on again.');return;}
+        }
+        retry('Voice Commands is still on. Reconnecting microphone…');return;
+      }
+      if(e.error==='network'){
+        if(fallbackToNativeInput())return;
+        if(++voiceNetworkFailures>4){
+          stopVoice();apply();setVoicePhase('error');
+          status('The browser speech service could not connect after 4 retries. Check your internet connection or VPN/firewall, then turn Voice Commands on again. You can also try Google Chrome.');return;
+        }
+        retry('Speech service connection interrupted. Reconnecting automatically; check your internet connection if this continues.',Math.min(1000*2**(voiceNetworkFailures-1),5000));return;
+      }
+      if(e.error==='audio-capture'&&fallbackToNativeInput())return;
       const messages={
         'not-allowed':'Microphone access was denied. Allow the microphone in your browser site settings, then turn Voice Commands on again.',
         'service-not-allowed':'Your browser blocked speech recognition. Check browser permissions or try Chrome or Edge.',
         'audio-capture':'No working microphone was found. Check your microphone connection and browser input device.',
-        'network':'The browser speech recognition service could not connect. Check your internet connection, then turn Voice Commands on again.',
         'language-not-supported':'English speech recognition is unavailable in this browser.'
       };
-      stopVoice();apply();status(messages[e.error]||`Voice input stopped (${e.error}). Turn Voice Commands on again to retry.`);
+      stopVoice();apply();setVoicePhase('error');status(messages[e.error]||`Voice input stopped (${e.error}). Turn Voice Commands on again to retry.`);
     };
-    session.onend=()=>{if(recognition!==session)return;recognition=null;if(state.voice){status('Reconnecting the microphone to keep listening…');queueVoiceRestart();}};
-    try{session.start();}catch{
-      recognition=null;session.onstart=session.onresult=session.onerror=session.onend=null;
-      if(++voiceStartFailures<3){status('Retrying microphone input…');queueVoiceRestart();}
-      else{stopVoice();apply();status('Microphone input could not start. Check browser microphone access, then turn Voice Commands on again.');}
+    session.onend=()=>{
+      if(recognition!==session||!state.voice)return;
+      if(!audioStarted&&fallbackToNativeInput())return;
+      if(!audioStarted&&++voiceStartFailures>=3){stopVoice();apply();setVoicePhase('error');status('Chrome ended speech recognition before microphone audio started. Check microphone permission and the selected input device.');return;}
+      retry('Voice Commands is still on. Reconnecting microphone…');
+    };
+    // Arm before start(): a stalled service may never emit the start event.
+    voiceStartTimer=setTimeout(startupTimedOut,10000);
+    try{if(voiceInputStream)session.start(voiceInputStream.getAudioTracks()[0]);else session.start();}catch(error){
+      if(['NotAllowedError','SecurityError'].includes(error?.name)){releaseVoiceSession(session);voiceMicrophoneError(error);return;}
+      if(fallbackToNativeInput())return;
+      releaseVoiceSession(session);
+      if(++voiceStartFailures<3){setVoicePhase('reconnecting','Retrying microphone input…');status('Retrying microphone input…');queueVoiceRestart();}
+      else{stopVoice();apply();setVoicePhase('error');status('Microphone input could not start. Check browser microphone access, then turn Voice Commands on again.');}
     }
   }
   function clearScan(){if(scanned)scanned.removeAttribute('data-ae-scanned');scanned=null;scanIndex=-1;}
@@ -257,12 +456,12 @@
     if(id==='captions'&&state.captions)status(updateCaptions()?'Available video captions enabled. Play the free lesson to see them.':'No caption tracks found. This website needs subtitle tracks for captions.');
     apply();
   }));
-  root.querySelector('#rate').addEventListener('change',e=>{state.rate=Number(e.target.value);if(state.speech){speechGeneration++;window.speechSynthesis.cancel();speakNext(speechGeneration);}apply();status(`Voice reading speed: ${state.rate}×.`);});
+  root.querySelector('#rate').addEventListener('change',e=>{state.rate=normalizeReadingRate(Number(e.target.value));if(state.speech){speechGeneration++;window.speechSynthesis.cancel();speakNext(speechGeneration);}apply();status(`Voice reading speed: ${state.rate}×.`);});
   root.querySelector('#align').addEventListener('change',e=>{state.align=e.target.value;apply();status(`All page text alignment: ${state.align}.`);});
   let stickyAltCaptured=false;
   document.addEventListener('keydown',e=>{
     const target=e.composedPath()[0];const typing=target.closest?.('input,textarea,select,video,audio,[contenteditable="true"]');
-    const shortcutA=e.code==='KeyA'||e.key.toLowerCase()==='a';
+    const shortcutA=e.code==='KeyA'||e.key?.toLowerCase()==='a';
     // The modal owns Escape and focus while a confirmation is open.
     if(e.key==='Escape'&&(root.querySelector('dialog[open]')||document.querySelector('dialog[open]')))return;
     if(e.key==='Escape'&&!panel.hidden){e.preventDefault();latched.clear();openPanel(false);return;}
@@ -286,7 +485,13 @@
   document.addEventListener('keyup',e=>{if(e.key==='Alt'&&stickyAltCaptured){e.preventDefault();stickyAltCaptured=false;}},true);
   window.addEventListener('blur',()=>{latched.clear();stickyAltCaptured=false;});
   document.addEventListener('loadedmetadata',updateCaptions,true);
-  const observer=new MutationObserver(records=>{if(records.some(record=>[...record.addedNodes].some(node=>node.nodeType===1 && node!==host))){apply();}});observer.observe(document.body,{childList:true,subtree:true});
+  const observer=new MutationObserver(records=>{
+    if(records.some(record=>{
+      const parent=record.target.nodeType===Node.ELEMENT_NODE?record.target:record.target.parentElement;
+      if(!parent||parent===host||parent.closest('#accessease-widget,script,style,noscript'))return false;
+      return record.type==='childList'&&[...record.addedNodes].some(node=>node!==host&&(node.nodeType===Node.ELEMENT_NODE||state.simple&&node.nodeType===Node.TEXT_NODE))||state.simple&&(record.type==='characterData'||record.type==='attributes');
+    }))apply();
+  });observer.observe(document.body,{childList:true,characterData:true,attributes:true,attributeFilter:['placeholder','data-simple','aria-label','title','alt'],subtree:true});
   window.addEventListener('pagehide',()=>{stopSpeech();stopVoice();});
   window.AccessEase = {
     host, root, open:()=>openPanel(true), close:()=>openPanel(false), status,
@@ -297,7 +502,7 @@
         if(['speech','voice','switches'].includes(name)) continue;
         if(typeof patch[name]===typeof defaults[name]) state[name]=patch[name];
       }
-      if(![.75,1,1.25,1.5,2].includes(state.rate))state.rate=1;
+      state.rate=normalizeReadingRate(state.rate);
       if(!['original','left','center','right','justify'].includes(state.align))state.align='original';
       apply();
     },
@@ -307,7 +512,7 @@
   apply();
   // Load the shared feature bundle relative to this script on any host website.
   const teamScript=document.createElement('script');
-  teamScript.src=new URL('team-features.js?v=20261010-unified',document.currentScript.src).href;
+  teamScript.src=new URL('team-features.js?v=20261013-reset-count',document.currentScript.src).href;
   teamScript.onerror=()=>status('Additional settings could not load. Check the widget asset files.');
   document.head.append(teamScript);
 })();

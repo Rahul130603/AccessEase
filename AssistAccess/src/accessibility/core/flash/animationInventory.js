@@ -24,7 +24,6 @@ import {
   describeElement,
   elementAreaPx,
   elementKey,
-  isElementVisible,
   isExcludedFromScanning,
   isInScope,
   isOwnedByToolbar,
@@ -65,8 +64,8 @@ export function analyzeKeyframes(keyframes) {
       colors.push(parsed);
       properties.add('color');
     });
-    if (typeof keyframe.opacity === 'number') {
-      opacityValues.push(keyframe.opacity);
+    if ((typeof keyframe.opacity === 'number' || typeof keyframe.opacity === 'string') && String(keyframe.opacity).trim() !== '' && Number.isFinite(Number(keyframe.opacity))) {
+      opacityValues.push(Number(keyframe.opacity));
       properties.add('opacity');
     }
     if (typeof keyframe.visibility === 'string') {
@@ -133,7 +132,13 @@ export function collectAnimationCandidates({ root, maxCandidates = 200 } = {}) {
     if (!target || target.nodeType !== 1) continue;
     if (!isInScope(target, root) || isOwnedByToolbar(target)) continue;
     if (isExcludedFromScanning(target)) continue;
-    if (!isElementVisible(target)) continue;
+    // A blink can be fully transparent or visibility:hidden at scan time.
+    // Keep it eligible, including when paused on its hidden frame, so rescanning
+    // does not undo protection. Elements without a rendered box stay excluded.
+    const rect = target.getBoundingClientRect();
+    if (target.hidden || rect.width <= 1 || rect.height <= 1) continue;
+    const style = target.ownerDocument.defaultView.getComputedStyle(target);
+    if (style.display === 'none') continue;
 
     const timing = typeof effect.getTiming === 'function' ? effect.getTiming() : null;
     const durationMs = readTimingMs(timing);
