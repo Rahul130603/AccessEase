@@ -51,6 +51,15 @@ test('live keys work without payment while origin, ownership and revocation rema
     assert.equal((await validate(token, 'https://other.example')).status, 403);
     assert.equal((await validate('invalid')).status, 403);
     assert.equal((await validate(token, 'null')).status, 403);
+    // Keys have no one-hour or calendar expiry. The hourly lastUsed write is
+    // telemetry only; a key remains valid until explicitly revoked.
+    const realNow=Date.now;
+    try {
+      for(const elapsed of [2*3600000,366*86400000,10*366*86400000]) {
+        Date.now=()=>realNow()+elapsed;
+        assert.equal((await validate(token)).status,200);
+      }
+    } finally {Date.now=realNow;}
     const preflight = await request('/api/widget/validate', { method: 'OPTIONS', headers: { origin: 'https://client.example' } });
     assert.equal(preflight.status, 204);
     assert.equal(preflight.headers['Access-Control-Allow-Headers'], 'X-AccessEase-Key');

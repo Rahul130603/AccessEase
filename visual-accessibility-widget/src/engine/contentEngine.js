@@ -108,7 +108,7 @@ export function createContentEngine({ root = document.body, host, nonce }) {
     // the host's hover/focus transitions unchanged.
     root.getBoundingClientRect();
     stylesheet.textContent = css;
-    if(settings.fontScale>1 || settings.dyslexiaFont) {
+    if(settings.fontScale>1 || settings.dyslexiaFont || settings.spacingPreset!=='default') {
       reflowText(elements,override);
       if(settings.dyslexiaFont && !dyslexiaReady && document.fonts) {
         dyslexiaReady=true;
