@@ -25,6 +25,9 @@ export function applyLightTheme(elements, override) {
     }
     return backgrounds.get(element);
   }
+  // Decide from the page canvas, not individual dark accents. A light page
+  // can have dark/orange headers and icon tiles that must remain untouched.
+  if (luminance(background(document.body || document.documentElement)) >= 0.18) return;
   // Snapshot all effective backgrounds before changing any inherited appearance.
   const snapshots = elements.map(element => ({ element, css: baseline(element), bg: background(element) }));
   for (const {element,css,bg} of snapshots) {
