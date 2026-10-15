@@ -1,5 +1,5 @@
 const EXCLUDE='svg,canvas,img,video,[role="img"],[data-uaw-preserve-layout],[data-uaw-preserve-layout] *,[data-uaw-chart],[data-chart],[class*="chart"],[class*="Chart"]';
-function reflowHeaders(elements,override) {
+function reflowHeaders(elements,override,compactNavigation) {
   const included=new Set(elements);
   for(const nav of elements.filter(el=>el.matches('nav,[role="navigation"]'))) {
     const header=nav.closest('header,[role="banner"]');
@@ -29,6 +29,11 @@ function reflowHeaders(elements,override) {
       const style=getComputedStyle(el);
       if(style.display==='none') continue;
       if(['flex','inline-flex'].includes(style.display) && style.flexDirection==='row') override(el,'flex-wrap','wrap');
+      if(compactNavigation && el.matches('a,button,[role="button"]') && parseFloat(style.minHeight)>44) {
+        // A desktop menu's 80px minimum repeats on every wrapped line.
+        // Keep usable controls without retaining that empty space per item.
+        override(el,'min-height','44px');
+      }
       if(el.textContent.trim() && !el.matches('img,svg,i') && !el.matches('[class*="icon"]')) {
         override(el,'height','auto');
         override(el,'max-height','none');
@@ -39,8 +44,8 @@ function reflowHeaders(elements,override) {
     }
   }
 }
-export function reflowText(elements,override) {
-  reflowHeaders(elements,override);
+export function reflowText(elements,override,{compactNavigation=false}={}) {
+  reflowHeaders(elements,override,compactNavigation);
   // Reflow ordinary rows while retaining scrolling/animated tracks and controls.
   const rows=elements.map(el=>({el,style:getComputedStyle(el)})).filter(({el,style})=>
     !el.matches(EXCLUDE) && style.display==='flex' && style.flexDirection==='row' &&

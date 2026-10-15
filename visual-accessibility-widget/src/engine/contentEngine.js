@@ -1,6 +1,7 @@
 // All overrides have a property-level journal. Removing the widget restores host values.
 import { colorModeVariables, colorSupportCss } from '../colorVision/colorModes.js';
 import { dyslexiaFontCss } from './dyslexiaFont.js';
+import { applyDyslexiaText } from './dyslexiaText.js';
 import { applyLightTheme } from './lightTheme.js';
 import { reflowText } from './textReflow.js';
 import { applyColorVision } from './colorVision.js';
@@ -94,7 +95,10 @@ export function createContentEngine({ root = document.body, host, nonce }) {
       if (declarations) css += `${TEXT}{${declarations}overflow-wrap:anywhere!important;}`;
       if (enabled('paragraphSpacing')) css += `${SCOPE}:where(p){margin-block-end:${settings.paragraphSpacing}em!important;}`;
     }
-    if (settings.dyslexiaFont) css += dyslexiaFontCss + `${TEXT}{font-family:"UAW OpenDyslexic",sans-serif!important;}`;
+    if (settings.dyslexiaFont) {
+      css += dyslexiaFontCss;
+      applyDyslexiaText(elements, override);
+    }
     if (settings.highlightLinks) {
       const controls = `${SCOPE}:where(a[href],area[href],button,input[type="button"],input[type="submit"],input[type="reset"],input[type="image"],[role="button"],[role="link"],summary)`;
       const color = ['dark','contrast'].includes(settings.theme) ? '#facc15' : '#2563eb';
@@ -109,18 +113,23 @@ export function createContentEngine({ root = document.body, host, nonce }) {
     root.getBoundingClientRect();
     stylesheet.textContent = css;
     if(settings.fontScale>1 || settings.dyslexiaFont || settings.spacingPreset!=='default') {
-      reflowText(elements,override);
+      reflowText(elements,override,{compactNavigation:settings.dyslexiaFont});
       if(settings.dyslexiaFont && !dyslexiaReady && document.fonts) {
         dyslexiaReady=true;
-        document.fonts.load('16px "UAW OpenDyslexic"').then(()=>refresh());
+        Promise.all([400,700].flatMap(weight=>['normal','italic'].map(style=>
+          document.fonts.load(`${style} ${weight} 16px "UAW OpenDyslexic"`)
+        ))).then(()=>refresh(),()=>{dyslexiaReady=false;});
       }
     }
   }
   function refresh() { clearTimeout(timer); timer = setTimeout(() => { if (current) apply(current); }, 80); }
   const observer = new MutationObserver(records => {
-    if (records.some(record => [...record.addedNodes, ...record.removedNodes].some(node => node !== host && node.nodeType === 1))) refresh();
+    if (records.some(record => !host?.contains(record.target) && (
+      (current?.dyslexiaFont && record.type==='characterData') || [...record.addedNodes, ...record.removedNodes].some(node =>
+        node !== host && (node.nodeType===1 || (current?.dyslexiaFont && node.nodeType===3)))
+    ))) refresh();
   });
-  observer.observe(root, { childList: true, subtree: true });
+  observer.observe(root, { childList: true, characterData: true, subtree: true });
   window.addEventListener('resize', refresh);
   return {
     apply, refresh,
