@@ -1,5 +1,46 @@
 const EXCLUDE='svg,canvas,img,video,[role="img"],[data-uaw-preserve-layout],[data-uaw-preserve-layout] *,[data-uaw-chart],[data-chart],[class*="chart"],[class*="Chart"]';
+function reflowHeaders(elements,override) {
+  const included=new Set(elements);
+  for(const nav of elements.filter(el=>el.matches('nav,[role="navigation"]'))) {
+    const header=nav.closest('header,[role="banner"]');
+    if(!header || !included.has(header) || header.matches(EXCLUDE) || nav.matches(EXCLUDE) || !nav.getClientRects().length) continue;
+    const headerStyle=getComputedStyle(header), navStyle=getComputedStyle(nav);
+    if(headerStyle.display==='none' || navStyle.display==='none') continue;
+    // Floating navigation has no flow height. Enlarged text must reserve space
+    // before the page content, rather than painting over it.
+    if(['absolute','fixed'].includes(headerStyle.position)) override(header,'position','relative');
+    if(['absolute','fixed'].includes(navStyle.position)) {
+      override(nav,'position','relative');
+      for(const edge of ['top','right','bottom','left']) override(nav,edge,'auto');
+    }
+    override(header,'height','auto');
+    override(header,'max-height','none');
+    override(nav,'height','auto');
+    override(nav,'max-height','none');
+    for(const el of [nav,...nav.querySelectorAll('*')]) {
+      if(!included.has(el) || el.matches(EXCLUDE) || !el.getClientRects().length) continue;
+      // Dropdowns, off-canvas menus and their descendants keep their original
+      // positioning and visibility. Only the visible navigation flow reflows.
+      let floating=false;
+      for(let ancestor=el;ancestor && ancestor!==nav;ancestor=ancestor.parentElement) {
+        if(['absolute','fixed'].includes(getComputedStyle(ancestor).position)) {floating=true;break;}
+      }
+      if(floating) continue;
+      const style=getComputedStyle(el);
+      if(style.display==='none') continue;
+      if(['flex','inline-flex'].includes(style.display) && style.flexDirection==='row') override(el,'flex-wrap','wrap');
+      if(el.textContent.trim() && !el.matches('img,svg,i') && !el.matches('[class*="icon"]')) {
+        override(el,'height','auto');
+        override(el,'max-height','none');
+        override(el,'white-space','normal');
+        override(el,'min-width','0');
+        override(el,'max-width','100%');
+      }
+    }
+  }
+}
 export function reflowText(elements,override) {
+  reflowHeaders(elements,override);
   // Reflow ordinary rows while retaining scrolling/animated tracks and controls.
   const rows=elements.map(el=>({el,style:getComputedStyle(el)})).filter(({el,style})=>
     !el.matches(EXCLUDE) && style.display==='flex' && style.flexDirection==='row' &&
