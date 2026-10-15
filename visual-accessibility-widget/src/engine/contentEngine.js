@@ -4,6 +4,7 @@ import { dyslexiaFontCss } from './dyslexiaFont.js';
 import { applyLightTheme } from './lightTheme.js';
 import { reflowText } from './textReflow.js';
 import { applyColorVision } from './colorVision.js';
+import { applyGrayscale } from './grayscale.js';
 const TEXT_SKIP = 'script,style,noscript,svg,svg *,canvas,iframe,[data-uaw-ignore],[data-uaw-ignore] *,[data-uaw-icon],[data-uaw-icon] *,[aria-hidden="true"],[aria-hidden="true"] *';
 const SCOPE = ':where([data-uaw-scope], [data-uaw-scope] *):not(:where([data-uaw-ignore],[data-uaw-ignore] *))';
 const TEXT = `${SCOPE}:not(:where(svg, svg *, img, video, canvas, [data-uaw-icon], [data-uaw-icon] *, [data-uaw-ignore], [data-uaw-ignore] *))`;
@@ -102,11 +103,7 @@ export function createContentEngine({ root = document.body, host, nonce }) {
       ${SCOPE}:where(a[href],[role="link"]){text-decoration:underline!important;text-decoration-thickness:2px!important;text-underline-offset:4px!important;}
       ${controls}:focus-visible{outline:3px dashed ${color}!important;outline-offset:5px!important;}`;
     }
-    // Scoped filters never include the widget. Preserve pre-existing root filters.
-    if (settings.grayscale) for (const el of scopes.keys()) {
-      const original = getComputedStyle(el).filter;
-      override(el, 'filter', `${original === 'none' ? '' : original} grayscale(1)`);
-    }
+    if (settings.grayscale) applyGrayscale([...scopes.keys()],override);
     // Commit scaled inline values while transitions are disabled, then return
     // the host's hover/focus transitions unchanged.
     root.getBoundingClientRect();
