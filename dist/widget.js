@@ -141,8 +141,15 @@
   function focused(){return root.activeElement||document.activeElement;}
   function move(direction){const items=controls();if(!items.length)return;const current=items.indexOf(focused());const index=current<0?(direction>0?0:items.length-1):(current+direction+items.length)%items.length;items[index].focus();}
   function updateCaptions(){let tracks=0;document.querySelectorAll('video').forEach(v=>{for(const track of v.textTracks){if(['captions','subtitles'].includes(track.kind)){track.mode=state.captions?'showing':'disabled';tracks++;}}});return tracks;}
-  let focusRing=null,focusFrame=null;
-  function hideFocusRing(){if(focusRing){focusRing.hidden=true;focusRing.style.setProperty('display','none','important');}}
+  let focusRing=null,focusFrame=null,outlinedElement=null,originalOutline=null;
+  function restoreFocusOutline(){
+    if(!outlinedElement)return;
+    if(originalOutline.value)outlinedElement.style.setProperty('outline-style',originalOutline.value,originalOutline.priority);
+    else outlinedElement.style.removeProperty('outline-style');
+    if(!originalOutline.hadStyle&&!outlinedElement.getAttribute('style'))outlinedElement.removeAttribute('style');
+    outlinedElement=null;originalOutline=null;
+  }
+  function hideFocusRing(){restoreFocusOutline();if(focusRing){focusRing.hidden=true;focusRing.style.setProperty('display','none','important');}}
   function updateFocusRing(){
     cancelAnimationFrame(focusFrame);focusFrame=null;
     const el=document.activeElement;
@@ -160,6 +167,11 @@
     if(!focusRing){
       focusRing=document.createElement('div');focusRing.dataset.aeFocusRing='';focusRing.dataset.uawIgnore='';focusRing.setAttribute('aria-hidden','true');
       document.body.append(focusRing);
+    }
+    if(outlinedElement!==el){
+      restoreFocusOutline();outlinedElement=el;
+      originalOutline={value:el.style.getPropertyValue('outline-style'),priority:el.style.getPropertyPriority('outline-style'),hadStyle:el.hasAttribute('style')};
+      el.style.setProperty('outline-style','none','important');
     }
     focusRing.hidden=false;
     for(const [property,value] of Object.entries({all:'initial',display:'block',position:'fixed','box-sizing':'border-box',left:`${left}px`,top:`${top}px`,width:`${right-left}px`,height:`${bottom-top}px`,border:'4px solid #2563eb','box-shadow':'0 0 0 3px #bfdbfe','pointer-events':'none','z-index':'2147483646',margin:'0',transform:'none',transition:'none'}))focusRing.style.setProperty(property,value,'important');
@@ -222,7 +234,7 @@
     const count=Object.entries(state).filter(([k,v])=>k==='rate'?v!==1:k==='align'?v!=='original':v===true).length;
     root.querySelector('.count').textContent=`${count+(teamExtension?.activeCount()||0)} active`;
     updateCaptions();persist();
-    if(!state.focus&&focusRing){focusRing.remove();focusRing=null;}
+    if(!state.focus){restoreFocusOutline();if(focusRing){focusRing.remove();focusRing=null;}}
     updateFocusRing();
     host.dispatchEvent(new CustomEvent('accessease:change',{detail:{...state}}));
   }
@@ -530,6 +542,14 @@
     if(e.key==='Escape'&&(root.querySelector('dialog[open]')||document.querySelector('dialog[open]')))return;
     if(e.key==='Escape'&&!panel.hidden){e.preventDefault();latched.clear();openPanel(false);return;}
     if(e.ctrlKey&&e.altKey&&shortcutA){e.preventDefault();latched.clear();if(!e.repeat)openPanel(panel.hidden);return;}
+    // The embed launcher can sit before or after the page in DOM order.
+    // Leaving it with Tab must enter page controls, rather than skip the header
+    // or require an extra trip through the browser toolbar.
+    if(state.focus&&panel.hidden&&e.key==='Tab'&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&focused()===launcher){
+      const pageControls=controls().filter(el=>!root.contains(el));
+      const next=e.shiftKey?pageControls.at(-1):pageControls[0];
+      if(next){e.preventDefault();next.focus();return;}
+    }
     if(state.sticky){
       if(e.key==='Control'){latched.add('Control');return;}
       if(e.key==='Alt'){

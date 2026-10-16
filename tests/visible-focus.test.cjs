@@ -15,7 +15,9 @@ test('visible focus includes overflowing text and restores skipped header contro
   w.Range.prototype.getClientRects=()=>[{left:20,top:110,right:420,bottom:190,width:400,height:80}];
   try{
     w.eval(source);
-    const heading=doc.querySelector('h1'),before=heading.style.cssText;
+    const heading=doc.querySelector('h1');
+    heading.style.setProperty('outline-style','dotted','important');
+    const before=heading.style.cssText;
     w.AccessEase.setSettings({focus:true});
     assert.equal(doc.querySelector('#header-link').tabIndex,0);
     assert.equal(doc.querySelector('#disabled').tabIndex,-1);
@@ -29,12 +31,20 @@ test('visible focus includes overflowing text and restores skipped header contro
     assert.equal(ring.style.pointerEvents,'none');
     assert.equal(ring.getAttribute('aria-hidden'),'true');
     assert.equal(ring.tabIndex,-1);
-    assert.equal(heading.style.cssText,before,'focus does not resize text or change page alignment');
+    assert.equal(heading.style.width,'300px','focus does not resize text or change page alignment');
+    assert.equal(heading.style.outlineStyle,'none','only the blue focus ring remains');
+    assert.equal(heading.style.getPropertyPriority('outline-style'),'important');
     doc.querySelector('#header-link').focus();
     assert.equal(doc.activeElement.id,'header-link');
+    assert.equal(heading.style.cssText,before,'the host outline returns when focus moves');
     assert.equal(ring.hidden,false);
     w.dispatchEvent(new w.Event('blur'));
     assert.equal(ring.style.display,'none','important display is cleared when the window loses focus');
+    w.AccessEase.close();
+    const tab=new w.KeyboardEvent('keydown',{key:'Tab',bubbles:true,composed:true,cancelable:true});
+    w.AccessEase.root.querySelector('.launcher').dispatchEvent(tab);
+    assert.equal(tab.defaultPrevented,true);
+    assert.equal(doc.activeElement.id,'header-link','Tab from the closed launcher enters the header');
     w.AccessEase.setSettings({focus:false});
     assert.equal(doc.querySelector('[data-ae-focus-ring]'),null);
     assert.equal(doc.querySelector('#header-link').getAttribute('tabindex'),'-1');
