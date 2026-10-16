@@ -59,3 +59,28 @@ test('Switch Device Support remains on across pages, and stays off after user di
     assert.equal(third.key(' ').defaultPrevented,false);
   }finally{first.close();second?.close();third?.close();}
 });
+
+test('switch activation opens a dropdown once without also running the host Enter handler',()=>{
+  const t=setup();
+  try{
+    const trigger=t.doc.querySelector('#link');trigger.setAttribute('aria-expanded','false');
+    const menu=t.doc.createElement('div');menu.hidden=true;
+    menu.innerHTML='<a id="submenu-link" href="#audit">Accessibility Audit</a>';
+    trigger.after(menu);
+    let activations=0,navigations=0;
+    trigger.addEventListener('click',event=>{
+      event.preventDefault();activations++;
+      if(!menu.hidden)navigations++;
+      menu.hidden=false;trigger.setAttribute('aria-expanded','true');
+    });
+    trigger.addEventListener('keydown',event=>{if(event.key==='Enter'||event.code==='Space')trigger.click();});
+    t.w.AccessEase.root.querySelector('[data-setting="switches"]').click();t.w.AccessEase.close();
+    t.key(' ');assert.equal(t.doc.querySelector('[data-ae-scanned]'),trigger);
+    t.key('Enter');
+    assert.equal(activations,1);assert.equal(navigations,0);
+    assert.equal(menu.hidden,false);
+    t.key(' ');
+    assert.equal(t.doc.querySelector('[data-ae-scanned]').id,'submenu-link','next switch step enters the opened dropdown');
+    assert.equal(activations,1,'Space scanning does not toggle the old dropdown again');
+  }finally{t.close();}
+});

@@ -624,7 +624,13 @@
       if(shortcutA&&latched.has('Control')&&latched.has('Alt')){e.preventDefault();latched.clear();if(!e.repeat){openPanel(panel.hidden);status('Sticky Keys shortcut activated. Press Ctrl, then Alt, then A to toggle settings again.');}return;}
       latched.clear();
     }
-    if(state.switches&&!typing){if(e.code==='Space'){e.preventDefault();scan();return;}if(e.key==='Enter'&&scanned){e.preventDefault();if(switchControls().includes(scanned))scanned.click();else clearScan();return;}}
+    if(state.switches&&!typing){
+      // Switch keys belong to this scanner. Dropdown libraries also listen for
+      // Enter/Space; letting the original key through activates the same toggle
+      // twice (or follows its parent link immediately after opening the menu).
+      if(e.code==='Space'){e.preventDefault();e.stopImmediatePropagation();scan();return;}
+      if(e.key==='Enter'&&scanned){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat){if(switchControls().includes(scanned))scanned.click();else clearScan();}return;}
+    }
     if(state.keyboard&&!typing&&!e.ctrlKey&&!e.metaKey&&!e.altKey){if(['ArrowDown','ArrowRight','ArrowUp','ArrowLeft'].includes(e.key)){e.preventDefault();move(['ArrowDown','ArrowRight'].includes(e.key)?1:-1);}}
   },true);
   document.addEventListener('keyup',e=>{if(e.key==='Alt'&&stickyAltCaptured){e.preventDefault();stickyAltCaptured=false;}},true);
