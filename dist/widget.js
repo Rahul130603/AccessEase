@@ -12,7 +12,7 @@
   for (const name of Object.keys(defaults)) if (typeof saved[name] === typeof defaults[name]) state[name] = saved[name];
   state.rate = normalizeReadingRate(state.rate);
   if (!['original','left','center','right','justify'].includes(state.align)) state.align = 'original';
-  state.speech = state.voice = state.switches = false;
+  state.speech = state.voice = false;
   const host = document.createElement('div'); host.id = 'accessease-widget'; document.body.prepend(host);
   const root = host.attachShadow({mode:'open'});
   host.setAttribute('data-uaw-ignore','');
@@ -133,7 +133,7 @@
     });
   }
   function main(){return document.querySelector('main,[role="main"]')||document.body;}
-  function persist(){try{localStorage.setItem(key,JSON.stringify({...state,speech:false,voice:false,switches:false}));}catch{}}
+  function persist(){try{localStorage.setItem(key,JSON.stringify({...state,speech:false,voice:false}));}catch{}}
   function status(message){root.querySelector('.status').textContent=message;if(state.voice&&panel.hidden)voiceIndicator.querySelector('span').textContent=message;}
   function openPanel(open){panel.hidden=!open;pageFocusEntryPending=!open&&state.focus;launcher.setAttribute('aria-expanded',String(open));launcher.setAttribute('aria-label',open?'Close accessibility settings':'Open accessibility settings');root.querySelector('.hint').hidden=true;voiceIndicator.hidden=!state.voice||open;if(open){root.querySelector('.body').scrollTop=0;root.querySelector('.close').focus({preventScroll:true});}else launcher.focus({preventScroll:true});}
   launcher.addEventListener('click',()=>openPanel(panel.hidden));root.querySelector('.close').addEventListener('click',()=>openPanel(false));
@@ -556,8 +556,26 @@
       else{stopVoice();apply();setVoicePhase('error');status('Microphone input could not start. Check browser microphone access, then turn Voice Commands on again.');}
     }
   }
-  function clearScan(){if(scanned)scanned.removeAttribute('data-ae-scanned');scanned=null;scanIndex=-1;}
-  function scan(){const items=controls();if(!items.length)return;if(scanned)scanned.removeAttribute('data-ae-scanned');scanIndex=(scanIndex+1)%items.length;scanned=items[scanIndex];scanned.setAttribute('data-ae-scanned','');scanned.focus();}
+  let scanTabIndex=null;
+  function switchControls(){
+    const selector='a[href],button,input:not([type="hidden"]),select,textarea,summary,video[controls],audio[controls],[role="button"],[role="link"],[role="switch"],[role="checkbox"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="tab"],[role="radio"]';
+    const modal=[...root.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]'),...document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]')].find(el=>!el.closest('[hidden],[inert]')&&el.getClientRects().length);
+    return [...new Set([...document.querySelectorAll(selector),...root.querySelectorAll(selector)])].filter(el=>
+      el!==host&&(!modal||modal.contains(el))&&!el.disabled&&!el.matches(':disabled')&&el.getAttribute('aria-disabled')!=='true'&&
+      !el.closest('[hidden],[inert],[aria-hidden="true"],svg')&&el.getClientRects().length&&
+      !['hidden','collapse'].includes(getComputedStyle(el).visibility));
+  }
+  function clearScan(){
+    if(scanned){scanned.removeAttribute('data-ae-scanned');if(scanTabIndex===null)scanned.removeAttribute('tabindex');else scanned.setAttribute('tabindex',scanTabIndex);}
+    scanned=null;scanIndex=-1;scanTabIndex=null;
+  }
+  function scan(){
+    const items=switchControls(),previous=items.indexOf(scanned);
+    clearScan();if(!items.length)return;
+    scanIndex=(previous+1)%items.length;scanned=items[scanIndex];scanTabIndex=scanned.getAttribute('tabindex');
+    if(scanned.tabIndex<0&&!scanned.hasAttribute('tabindex'))scanned.setAttribute('tabindex','-1');
+    scanned.setAttribute('data-ae-scanned','');scanned.focus({preventScroll:true});scanned.scrollIntoView?.({block:'nearest',inline:'nearest',behavior:'auto'});
+  }
   function reset(){stopSpeech();stopVoice();clearScan();latched.clear();selectedReadingText='';sentences=[];Object.assign(state,defaults);teamExtension?.reset();apply();status('All settings have been reset.');}
   root.querySelector('.reset').addEventListener('click',reset);
   root.querySelectorAll('[data-setting]').forEach(el=>el.addEventListener('click',()=>{
@@ -606,7 +624,7 @@
       if(shortcutA&&latched.has('Control')&&latched.has('Alt')){e.preventDefault();latched.clear();if(!e.repeat){openPanel(panel.hidden);status('Sticky Keys shortcut activated. Press Ctrl, then Alt, then A to toggle settings again.');}return;}
       latched.clear();
     }
-    if(state.switches&&!typing){if(e.code==='Space'){e.preventDefault();scan();return;}if(e.key==='Enter'&&scanned){e.preventDefault();scanned.click();return;}}
+    if(state.switches&&!typing){if(e.code==='Space'){e.preventDefault();scan();return;}if(e.key==='Enter'&&scanned){e.preventDefault();if(switchControls().includes(scanned))scanned.click();else clearScan();return;}}
     if(state.keyboard&&!typing&&!e.ctrlKey&&!e.metaKey&&!e.altKey){if(['ArrowDown','ArrowRight','ArrowUp','ArrowLeft'].includes(e.key)){e.preventDefault();move(['ArrowDown','ArrowRight'].includes(e.key)?1:-1);}}
   },true);
   document.addEventListener('keyup',e=>{if(e.key==='Alt'&&stickyAltCaptured){e.preventDefault();stickyAltCaptured=false;}},true);
@@ -635,7 +653,11 @@
     // Release the old page's microphone; the next page opens its own recognizer.
     if(continueVoice)try{window.sessionStorage.setItem(voiceNavigationKey,JSON.stringify({origin:window.location.origin,expiresAt:Date.now()+300000}));}catch{}
   });
-  window.addEventListener('pageshow',event=>{if(event.persisted)resumeVoiceNavigation();});
+  window.addEventListener('pageshow',event=>{
+    if(!event.persisted)return;
+    try{const preferences=JSON.parse(localStorage.getItem(key)||'{}');if(typeof preferences.switches==='boolean')state.switches=preferences.switches;}catch{}
+    clearScan();apply();resumeVoiceNavigation();
+  });
   window.AccessEase = {
     host, root, open:()=>openPanel(true), close:()=>openPanel(false), status,
     getSettings:()=>({...state}), reset,
