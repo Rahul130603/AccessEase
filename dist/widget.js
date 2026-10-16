@@ -374,6 +374,17 @@
       matches=candidates.filter(el=>voiceControlNames(el).includes(target));
     }
     if(!matches.length&&target)matches=candidates.filter(el=>voiceControlNames(el).some(label=>` ${label} `.includes(` ${target} `)));
+    matches=[...new Set(matches)];
+    if(!ordinal&&matches.length>1){
+      // A footer link with the same label must not make the single on-screen
+      // header control ambiguous. Keep off-screen matches for explicit ordinals
+      // or when the requested control is not currently in the viewport.
+      const onScreen=matches.filter(el=>{
+        const rect=el.getBoundingClientRect?.();
+        return rect&&rect.width>0&&rect.height>0&&rect.bottom>0&&rect.right>0&&rect.top<window.innerHeight&&rect.left<window.innerWidth;
+      });
+      if(onScreen.length)matches=onScreen;
+    }
     if(ordinal){const index=ordinal==='last'?matches.length-1:{first:0,second:1,third:2}[ordinal];matches=matches[index]?[matches[index]]:[];}
     if(!matches.length){status(`No available button or link named “${name}”. Say “click” followed by the name shown on the page.`);return null;}
     if(matches.length>1){status(`Found ${matches.length} items named “${name}”. Say “click first ${target}” or “click second ${target}”.`);return null;}

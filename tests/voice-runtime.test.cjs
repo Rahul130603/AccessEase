@@ -39,6 +39,34 @@ function speech(session,index,transcript){
   session.onresult({resultIndex:index,results});
 }
 
+test('voice chooses the single on-screen matching link instead of its off-screen footer duplicate',()=>{
+  const t=setup(()=>{});const clicked=[];
+  try{
+    const header=t.w.document.createElement('a');header.href='#header';header.textContent='Digital Solutions';
+    const footer=t.w.document.createElement('a');footer.href='#footer';footer.textContent='Digital Solutions';
+    const rect=top=>({left:20,right:180,top,bottom:top+40,width:160,height:40});
+    header.getBoundingClientRect=()=>rect(100);
+    footer.getBoundingClientRect=()=>rect(2400);
+    header.addEventListener('click',event=>{event.preventDefault();clicked.push('header');});
+    footer.addEventListener('click',event=>{event.preventDefault();clicked.push('footer');});
+    t.w.document.body.prepend(header);t.w.document.body.append(footer);
+    t.root.querySelector('[data-setting="voice"]').click();t.sessions[0].onaudiostart();
+    speech(t.sessions[0],0,'click digital solutions');
+    assert.deepEqual(clicked,['header']);
+    assert.doesNotMatch(t.root.querySelector('.status').textContent,/Found 2/);
+    footer.getBoundingClientRect=()=>rect(200);
+    speech(t.sessions[0],1,'click digital solutions');
+    assert.deepEqual(clicked,['header'],'two on-screen controls still require disambiguation');
+    assert.match(t.root.querySelector('.status').textContent,/Found 2/);
+    footer.getBoundingClientRect=()=>rect(2400);
+    speech(t.sessions[0],2,'click second digital solutions');
+    assert.deepEqual(clicked,['header','footer'],'explicit ordinal can select the off-screen duplicate');
+    header.getBoundingClientRect=()=>rect(-200);
+    speech(t.sessions[0],3,'click digital solutions');
+    assert.match(t.root.querySelector('.status').textContent,/Found 2/,'no visible match preserves the ambiguity check');
+  }finally{t.w.close();}
+});
+
 test('active voice resumes on the next same-origin page and still executes commands',()=>{
   const first=setup(()=>{});let second;
   try{
