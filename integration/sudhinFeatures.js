@@ -2,7 +2,7 @@
 // dist/accessibility-widget.js. Shares the unified widget lifecycle instead of
 // mounting Sudhin's separate launcher. Captions always come from real cue data.
 export function createSudhinFeatures({host,root}) {
-  const cleanup=[], videos=new Map(), tabStops=new Set();
+  const cleanup=[], videos=new Map(), tabStops=new Set(), navigationTargets=new Map();
   let observer, frame, style;
   const outside=node=>node instanceof Element&&!host.contains(node)&&!node.closest('[data-accessease-navigation]');
   function listen(node,event,handler){node.addEventListener(event,handler);cleanup.push(()=>node.removeEventListener(event,handler));}
@@ -54,14 +54,17 @@ export function createSudhinFeatures({host,root}) {
   }
   function refreshNavigation(){
     document.querySelectorAll('main,[role="main"],main h1,main h2,[role="main"] h1,[role="main"] h2').forEach(node=>{
-      if(!outside(node)||!node.getClientRects().length||node.hasAttribute('tabindex'))return;
-      node.setAttribute('tabindex','0');node.classList.add('sudhin-tab-stop');tabStops.add(node);
+      if(!outside(node)||!node.getClientRects().length)return;
+      if(!navigationTargets.has(node))navigationTargets.set(node,node.classList.contains('sudhin-tab-stop'));
+      node.classList.add('sudhin-tab-stop');
+      if(!node.hasAttribute('tabindex')){node.setAttribute('tabindex','0');tabStops.add(node);}
     });
   }
   function apply(settings){
     style=document.createElement('style');style.textContent='.sudhin-live-caption{position:fixed;pointer-events:none;z-index:2147483646;padding:8px 12px;border-radius:5px;background:#111e;color:#fff;font:16px/1.5 Arial,sans-serif;white-space:pre-line}';root.append(style);
     if(settings.simplifiedNav){
-      const pageStyle=document.createElement('style');pageStyle.textContent='.sudhin-tab-stop:focus-visible{outline:3px solid #2563eb;outline-offset:5px}';document.head.append(pageStyle);cleanup.push(()=>pageStyle.remove());
+      // The shared focus renderer includes overflowing text instead of outlining
+      // only the authored element box. It also follows scrolling and resizing.
       refreshNavigation();
     }
     function scan(){
@@ -75,5 +78,5 @@ export function createSudhinFeatures({host,root}) {
       cancelAnimationFrame(frame);frame=requestAnimationFrame(scan);
     });observer.observe(document.body,{childList:true,subtree:true});
   }
-  return {apply,destroy(){observer?.disconnect();cancelAnimationFrame(frame);cleanup.forEach(fn=>fn());videos.forEach(dispose=>dispose());tabStops.forEach(node=>{node.removeAttribute('tabindex');node.classList.remove('sudhin-tab-stop');});style?.remove();}};
+  return {apply,destroy(){observer?.disconnect();cancelAnimationFrame(frame);cleanup.forEach(fn=>fn());videos.forEach(dispose=>dispose());tabStops.forEach(node=>node.removeAttribute('tabindex'));navigationTargets.forEach((hadClass,node)=>{if(!hadClass)node.classList.remove('sudhin-tab-stop');});navigationTargets.clear();tabStops.clear();style?.remove();}};
 }

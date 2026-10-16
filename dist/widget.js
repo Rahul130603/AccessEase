@@ -155,7 +155,8 @@
   function updateFocusRing(){
     cancelAnimationFrame(focusFrame);focusFrame=null;
     const el=document.activeElement;
-    if(!(state.focus||state.skip)||!document.hasFocus()||!el||el===host||el===document.body||el.closest('[data-uaw-ignore]')||!el.matches(':focus-visible')||!el.getClientRects().length){
+    const simplifiedTarget=el?.classList.contains('sudhin-tab-stop');
+    if(!(state.focus||state.skip||simplifiedTarget)||!document.hasFocus()||!el||el===host||el===document.body||el.closest('[data-uaw-ignore]')||!el.matches(':focus-visible')||!el.getClientRects().length){
       hideFocusRing();
       return;
     }
@@ -176,7 +177,8 @@
       el.style.setProperty('outline-style','none','important');
     }
     focusRing.hidden=false;
-    for(const [property,value] of Object.entries({all:'initial',display:'block',position:'fixed','box-sizing':'border-box',left:`${left}px`,top:`${top}px`,width:`${right-left}px`,height:`${bottom-top}px`,border:state.skip?'2px solid #2563eb':'4px solid #2563eb','box-shadow':state.skip?'none':'0 0 0 3px #bfdbfe','pointer-events':'none','z-index':'2147483646',margin:'0',transform:'none',transition:'none'}))focusRing.style.setProperty(property,value,'important');
+    const simplifiedOnly=simplifiedTarget&&!state.focus&&!state.skip;
+    for(const [property,value] of Object.entries({all:'initial',display:'block',position:'fixed','box-sizing':'border-box',left:`${left}px`,top:`${top}px`,width:`${right-left}px`,height:`${bottom-top}px`,border:state.skip?'2px solid #2563eb':simplifiedOnly?'3px solid #2563eb':'4px solid #2563eb','box-shadow':state.skip||simplifiedOnly?'none':'0 0 0 3px #bfdbfe','pointer-events':'none','z-index':'2147483646',margin:'0',transform:'none',transition:'none'}))focusRing.style.setProperty(property,value,'important');
     focusFrame=requestAnimationFrame(updateFocusRing);
   }
   document.addEventListener('focusin',updateFocusRing,true);
@@ -239,7 +241,7 @@
     const count=Object.entries(state).filter(([k,v])=>k==='rate'?v!==1:k==='align'?v!=='original':v===true).length;
     root.querySelector('.count').textContent=`${count+(teamExtension?.activeCount()||0)} active`;
     updateCaptions();persist();
-    if(!(state.focus||state.skip)){restoreFocusOutline();if(focusRing){focusRing.remove();focusRing=null;}}
+    if(!(state.focus||state.skip||document.activeElement?.classList.contains('sudhin-tab-stop'))){restoreFocusOutline();if(focusRing){focusRing.remove();focusRing=null;}}
     updateFocusRing();
     host.dispatchEvent(new CustomEvent('accessease:change',{detail:{...state}}));
   }
@@ -684,7 +686,7 @@
   resumeVoiceNavigation();
   // Load the shared feature bundle relative to this script on any host website.
   const teamScript=document.createElement('script');
-  teamScript.src=new URL('team-features.js?v=20261016-image-alt-overlay',document.currentScript.src).href;
+  teamScript.src=new URL('team-features.js?v=20261016-simplified-focus',document.currentScript.src).href;
   teamScript.onerror=()=>status('Additional settings could not load. Check the widget asset files.');
   document.head.append(teamScript);
 })();
