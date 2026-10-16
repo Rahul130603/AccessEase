@@ -79,10 +79,17 @@ test('Skip to Main Content alone uses a solid blue focus ring on inputs and rest
     assert.equal(ring.hidden,false);
     assert.equal(ring.style.borderStyle,'solid');
     assert.equal(ring.style.borderColor,'rgb(37, 99, 235)');
+    assert.equal(ring.style.borderWidth,'2px');
+    assert.equal(ring.style.boxShadow,'none','Skip has one blue line without the Visible Focus halo');
     assert.equal(input.style.outlineStyle,'none');
     assert.equal(w.AccessEase.getSettings().focus,false,'the separate Visible Keyboard Focus setting stays off');
     assert.equal(doc.querySelector('h1').hasAttribute('tabindex'),false,'Skip keeps the existing tab order');
+    w.AccessEase.setSettings({focus:true});
+    assert.equal(ring.style.boxShadow,'none','Skip keeps its single line when both settings are enabled');
     w.AccessEase.setSettings({skip:false});
+    assert.equal(ring.style.borderWidth,'4px');
+    assert.equal(ring.style.boxShadow,'0 0 0 3px #bfdbfe','Visible Keyboard Focus keeps its original style');
+    w.AccessEase.setSettings({focus:false});
     assert.equal(doc.querySelector('[data-ae-focus-ring]'),null);
     assert.equal(input.style.outlineStyle,'dotted');
     assert.equal(input.style.getPropertyPriority('outline-style'),'important');

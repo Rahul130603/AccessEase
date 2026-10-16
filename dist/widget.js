@@ -175,7 +175,7 @@
       el.style.setProperty('outline-style','none','important');
     }
     focusRing.hidden=false;
-    for(const [property,value] of Object.entries({all:'initial',display:'block',position:'fixed','box-sizing':'border-box',left:`${left}px`,top:`${top}px`,width:`${right-left}px`,height:`${bottom-top}px`,border:'4px solid #2563eb','box-shadow':'0 0 0 3px #bfdbfe','pointer-events':'none','z-index':'2147483646',margin:'0',transform:'none',transition:'none'}))focusRing.style.setProperty(property,value,'important');
+    for(const [property,value] of Object.entries({all:'initial',display:'block',position:'fixed','box-sizing':'border-box',left:`${left}px`,top:`${top}px`,width:`${right-left}px`,height:`${bottom-top}px`,border:state.skip?'2px solid #2563eb':'4px solid #2563eb','box-shadow':state.skip?'none':'0 0 0 3px #bfdbfe','pointer-events':'none','z-index':'2147483646',margin:'0',transform:'none',transition:'none'}))focusRing.style.setProperty(property,value,'important');
     focusFrame=requestAnimationFrame(updateFocusRing);
   }
   document.addEventListener('focusin',updateFocusRing,true);
