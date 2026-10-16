@@ -61,3 +61,30 @@ test('visible focus includes overflowing text and restores skipped header contro
     assert.equal(heading.style.cssText,before);
   }finally{w.close();}
 });
+
+test('Skip to Main Content alone uses a solid blue focus ring on inputs and restores the host outline',()=>{
+  const dom=new JSDOM('<body><main><h1>Content</h1><input type="email" style="outline-style:dotted!important" placeholder="user@example.com"></main></body>',{url:'http://localhost:1434/',runScripts:'outside-only',pretendToBeVisual:true});
+  const w=dom.window,doc=w.document;
+  Object.defineProperty(doc,'currentScript',{value:{src:'http://localhost:1434/widget.js'}});
+  doc.hasFocus=()=>true;
+  w.HTMLElement.prototype.getClientRects=function(){return this.closest('[hidden]')?[]:[this.getBoundingClientRect()];};
+  w.HTMLElement.prototype.getBoundingClientRect=()=>({left:20,top:100,right:320,bottom:150,width:300,height:50});
+  w.Range.prototype.getClientRects=()=>[];
+  try{
+    w.eval(source);
+    w.AccessEase.setSettings({skip:true});
+    const input=doc.querySelector('input');input.focus();
+    const ring=doc.querySelector('[data-ae-focus-ring]');
+    assert.ok(ring);
+    assert.equal(ring.hidden,false);
+    assert.equal(ring.style.borderStyle,'solid');
+    assert.equal(ring.style.borderColor,'rgb(37, 99, 235)');
+    assert.equal(input.style.outlineStyle,'none');
+    assert.equal(w.AccessEase.getSettings().focus,false,'the separate Visible Keyboard Focus setting stays off');
+    assert.equal(doc.querySelector('h1').hasAttribute('tabindex'),false,'Skip keeps the existing tab order');
+    w.AccessEase.setSettings({skip:false});
+    assert.equal(doc.querySelector('[data-ae-focus-ring]'),null);
+    assert.equal(input.style.outlineStyle,'dotted');
+    assert.equal(input.style.getPropertyPriority('outline-style'),'important');
+  }finally{w.close();}
+});

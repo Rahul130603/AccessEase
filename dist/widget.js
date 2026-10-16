@@ -154,7 +154,7 @@
   function updateFocusRing(){
     cancelAnimationFrame(focusFrame);focusFrame=null;
     const el=document.activeElement;
-    if(!state.focus||!document.hasFocus()||!el||el===host||el===document.body||el.closest('[data-uaw-ignore]')||!el.matches(':focus-visible')||!el.getClientRects().length){
+    if(!(state.focus||state.skip)||!document.hasFocus()||!el||el===host||el===document.body||el.closest('[data-uaw-ignore]')||!el.matches(':focus-visible')||!el.getClientRects().length){
       hideFocusRing();
       return;
     }
@@ -238,7 +238,7 @@
     const count=Object.entries(state).filter(([k,v])=>k==='rate'?v!==1:k==='align'?v!=='original':v===true).length;
     root.querySelector('.count').textContent=`${count+(teamExtension?.activeCount()||0)} active`;
     updateCaptions();persist();
-    if(!state.focus){restoreFocusOutline();if(focusRing){focusRing.remove();focusRing=null;}}
+    if(!(state.focus||state.skip)){restoreFocusOutline();if(focusRing){focusRing.remove();focusRing=null;}}
     updateFocusRing();
     host.dispatchEvent(new CustomEvent('accessease:change',{detail:{...state}}));
   }
