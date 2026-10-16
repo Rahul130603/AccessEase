@@ -2,6 +2,7 @@
   'use strict';
   if (document.getElementById('accessease-widget')) return;
   const key = 'accessease.preferences.v1';
+  const voiceNavigationKey='accessease.voice.navigation.v1';
   const defaults = {speech:false,rate:1,align:'original',simple:false,highlight:false,keyboard:false,focus:false,skip:false,targets:false,voice:false,switches:false,sticky:false,captions:false};
   const readingRates = [.75,1,1.1,1.25,1.5];
   // Keep older saved/exported 2x preferences usable at the gentler maximum.
@@ -386,6 +387,7 @@
     if(session){session.onstart=session.onaudiostart=session.onsoundstart=session.onspeechstart=session.onresult=session.onerror=session.onend=session.onnomatch=null;try{session.abort();}catch{}}
   }
   function stopVoice(){
+    try{window.sessionStorage.removeItem(voiceNavigationKey);}catch{}
     state.voice=false;voiceNetworkFailures=0;
     clearTimeout(voiceRestartTimer);clearTimeout(voiceStartTimer);voiceRestartTimer=voiceStartTimer=null;
     releaseVoiceSession(recognition);
@@ -584,7 +586,23 @@
       return record.type==='childList'&&[...record.addedNodes].some(node=>node!==host&&!node.matches?.('[data-ae-focus-ring]')&&(node.nodeType===Node.ELEMENT_NODE||state.simple&&node.nodeType===Node.TEXT_NODE))||state.simple&&(record.type==='characterData'||record.type==='attributes');
     }))apply();
   });observer.observe(document.body,{childList:true,characterData:true,attributes:true,attributeFilter:['placeholder','data-simple','aria-label','title','alt'],subtree:true});
-  window.addEventListener('pagehide',()=>{stopSpeech();stopVoice();});
+  function resumeVoiceNavigation(){
+    let continuation;
+    try{
+      continuation=JSON.parse(window.sessionStorage.getItem(voiceNavigationKey)||'null');
+      window.sessionStorage.removeItem(voiceNavigationKey);
+    }catch{return;}
+    if(!continuation||continuation.origin!==window.location.origin||!Number.isFinite(continuation.expiresAt)||continuation.expiresAt<=Date.now())return;
+    state.voice=true;startVoice();apply();
+  }
+  window.addEventListener('pagehide',()=>{
+    const continueVoice=state.voice;
+    stopSpeech();stopVoice();
+    // Keep the user's active choice only across this tab's same-origin pages.
+    // Release the old page's microphone; the next page opens its own recognizer.
+    if(continueVoice)try{window.sessionStorage.setItem(voiceNavigationKey,JSON.stringify({origin:window.location.origin,expiresAt:Date.now()+300000}));}catch{}
+  });
+  window.addEventListener('pageshow',event=>{if(event.persisted)resumeVoiceNavigation();});
   window.AccessEase = {
     host, root, open:()=>openPanel(true), close:()=>openPanel(false), status,
     getSettings:()=>({...state}), reset,
@@ -602,6 +620,7 @@
     refresh:apply,
   };
   apply();
+  resumeVoiceNavigation();
   // Load the shared feature bundle relative to this script on any host website.
   const teamScript=document.createElement('script');
   teamScript.src=new URL('team-features.js?v=20261015-dyslexia-reflow',document.currentScript.src).href;

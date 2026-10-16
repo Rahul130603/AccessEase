@@ -6,7 +6,7 @@ const {JSDOM,VirtualConsole}=require('jsdom');
 
 const widget=fs.readFileSync(path.join(__dirname,'../dist/widget.js'),'utf8');
 
-function setup(getUserMedia,{trackInput=false,devices=[],rejectTrack=false}={}){
+function setup(getUserMedia,{trackInput=false,devices=[],rejectTrack=false,continuation=null}={}){
   const errors=[];
   const console=new VirtualConsole();console.on('jsdomError',error=>errors.push(error.message));
   const dom=new JSDOM('<!doctype html><html lang="en"><head></head><body><main><h1>Voice test</h1><button id="save">Save bookmark</button></main></body></html>',{
@@ -26,6 +26,7 @@ function setup(getUserMedia,{trackInput=false,devices=[],rejectTrack=false}={}){
   w.HTMLElement.prototype.scrollIntoView=function(){};
   w.scrollBy=options=>pageScroll.push(options.top);
   Object.defineProperty(w.document,'currentScript',{value:{src:'http://localhost:1434/widget.js'}});
+  if(continuation)w.sessionStorage.setItem('accessease.voice.navigation.v1',continuation);
   w.eval(widget);
   const root=w.AccessEase.root;
   root.querySelector('.launcher').click();
@@ -37,6 +38,57 @@ function speech(session,index,transcript){
   results[index]=[{transcript}];results[index].isFinal=true;
   session.onresult({resultIndex:index,results});
 }
+
+test('active voice resumes on the next same-origin page and still executes commands',()=>{
+  const first=setup(()=>{});let second;
+  try{
+    first.root.querySelector('[data-setting="voice"]').click();
+    first.sessions[0].onaudiostart();
+    first.w.dispatchEvent(new first.w.PageTransitionEvent('pagehide'));
+    assert.equal(first.sessions[0].aborted,true,'old page releases recognition');
+    assert.equal(first.sessions[0].onend,null,'old callbacks cannot restart capture');
+    const continuation=first.w.sessionStorage.getItem('accessease.voice.navigation.v1');
+    assert.ok(continuation);
+    second=setup(()=>{},{continuation});
+    assert.equal(second.w.AccessEase.getSettings().voice,true);
+    assert.equal(second.sessions.length,1);
+    assert.equal(second.sessions[0].started,true);
+    second.sessions[0].onaudiostart();
+    second.w.AccessEase.close();
+    speech(second.sessions[0],0,'scroll down');
+    assert.deepEqual(second.pageScroll,[450]);
+    assert.equal(second.w.sessionStorage.getItem('accessease.voice.navigation.v1'),null,'continuation is consumed once');
+    second.root.querySelector('.voice-indicator button').click();
+    second.w.dispatchEvent(new second.w.PageTransitionEvent('pagehide'));
+    assert.equal(second.w.sessionStorage.getItem('accessease.voice.navigation.v1'),null,'explicit Stop does not resume on navigation');
+    assert.deepEqual(second.errors,[]);
+  }finally{first.w.close();second?.w.close();}
+});
+
+test('voice continuation supports back-forward restoration and rejects stale or other-origin records',()=>{
+  const t=setup(()=>{});
+  try{
+    t.root.querySelector('[data-setting="voice"]').click();
+    t.sessions[0].onaudiostart();
+    t.w.dispatchEvent(new t.w.PageTransitionEvent('pagehide',{persisted:true}));
+    t.w.dispatchEvent(new t.w.PageTransitionEvent('pageshow',{persisted:true}));
+    assert.equal(t.sessions.length,2);
+    assert.equal(t.w.AccessEase.getSettings().voice,true);
+    t.sessions[1].onaudiostart();
+    t.root.querySelector('.voice-indicator button').click();
+    t.w.dispatchEvent(new t.w.PageTransitionEvent('pageshow',{persisted:true}));
+    assert.equal(t.sessions.length,2,'back-forward restore after Stop stays off');
+  }finally{t.w.close();}
+  for(const record of [
+    {origin:'http://localhost:1434',expiresAt:Date.now()-1000},
+    {origin:'https://another.example',expiresAt:Date.now()+60000},
+    {origin:'http://localhost:1434',expiresAt:null},
+  ]){
+    const fresh=setup(()=>{},{continuation:JSON.stringify(record)});
+    try{assert.equal(fresh.sessions.length,0);assert.equal(fresh.w.AccessEase.getSettings().voice,false);}
+    finally{fresh.w.close();}
+  }
+});
 
 test('one recognizer opens the microphone, hears speech, scrolls, and clicks a named button',async()=>{
   let permissionProbe=0,clicked=0;
