@@ -45,6 +45,15 @@ test('visible focus includes overflowing text and restores skipped header contro
     w.AccessEase.root.querySelector('.launcher').dispatchEvent(tab);
     assert.equal(tab.defaultPrevented,true);
     assert.equal(doc.activeElement.id,'header-link','Tab from the closed launcher enters the header');
+    w.AccessEase.open();w.AccessEase.close();
+    heading.focus(); // The host page/browser restored the previous content focus.
+    const restoredTab=new w.KeyboardEvent('keydown',{key:'Tab',bubbles:true,composed:true,cancelable:true});
+    heading.dispatchEvent(restoredTab);
+    assert.equal(restoredTab.defaultPrevented,true);
+    assert.equal(doc.activeElement.id,'header-link','first forward Tab starts in the header even after page focus was restored');
+    const subsequentTab=new w.KeyboardEvent('keydown',{key:'Tab',bubbles:true,composed:true,cancelable:true});
+    doc.querySelector('#header-link').dispatchEvent(subsequentTab);
+    assert.equal(subsequentTab.defaultPrevented,false,'later Tab presses keep normal document order');
     w.AccessEase.setSettings({focus:false});
     assert.equal(doc.querySelector('[data-ae-focus-ring]'),null);
     assert.equal(doc.querySelector('#header-link').getAttribute('tabindex'),'-1');

@@ -72,6 +72,7 @@
     if(state.voice){stopVoice();state.voice=true;startVoice();apply();}
   });
   let recognition=null, scanned=null, scanIndex=-1, readingIndex=0, readingOffset=0, readingTimer=null, sentences=[], speechGeneration=0, selectedReadingText='';
+  let pageFocusEntryPending=state.focus,focusWasEnabled=state.focus;
   const simpleNodes=new Map(); const simpleAttributes=new Map(); const readingTabIndexes=new Map(); const latched=new Set();
   const simpleWording=new Map(Object.entries(window.AccessEaseSimpleText||{}).filter(([,text])=>typeof text==='string'&&text.trim()).map(([text,plain])=>[text.trim().replace(/\s+/g,' '),plain]));
   const plainPhrases=[
@@ -133,9 +134,9 @@
   function main(){return document.querySelector('main,[role="main"]')||document.body;}
   function persist(){try{localStorage.setItem(key,JSON.stringify({...state,speech:false,voice:false,switches:false}));}catch{}}
   function status(message){root.querySelector('.status').textContent=message;if(state.voice&&panel.hidden)voiceIndicator.querySelector('span').textContent=message;}
-  function openPanel(open){panel.hidden=!open;launcher.setAttribute('aria-expanded',String(open));launcher.setAttribute('aria-label',open?'Close accessibility settings':'Open accessibility settings');root.querySelector('.hint').hidden=true;voiceIndicator.hidden=!state.voice||open;if(open){root.querySelector('.body').scrollTop=0;root.querySelector('.close').focus({preventScroll:true});}else launcher.focus({preventScroll:true});}
+  function openPanel(open){panel.hidden=!open;pageFocusEntryPending=!open&&state.focus;launcher.setAttribute('aria-expanded',String(open));launcher.setAttribute('aria-label',open?'Close accessibility settings':'Open accessibility settings');root.querySelector('.hint').hidden=true;voiceIndicator.hidden=!state.voice||open;if(open){root.querySelector('.body').scrollTop=0;root.querySelector('.close').focus({preventScroll:true});}else launcher.focus({preventScroll:true});}
   launcher.addEventListener('click',()=>openPanel(panel.hidden));root.querySelector('.close').addEventListener('click',()=>openPanel(false));
-  function goMain(){openPanel(false);const el=main();if(!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});el.scrollIntoView({behavior:'instant',block:'start'});}
+  function goMain(){openPanel(false);pageFocusEntryPending=false;const el=main();if(!el.hasAttribute('tabindex'))el.setAttribute('tabindex','-1');el.focus({preventScroll:true});el.scrollIntoView({behavior:'instant',block:'start'});}
   root.querySelector('.skip').addEventListener('click',goMain);
   function controls(){const selector='a[href],button,input,select,textarea,summary,video[controls],audio[controls],[tabindex]';const modal=[...root.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]'),...document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]')].find(el=>!el.closest('[hidden],[inert]')&&el.getClientRects().length);return [...document.querySelectorAll(selector),...root.querySelectorAll(selector)].filter(el=>el!==host && (!modal||modal.contains(el)) && !el.disabled && el.getAttribute('aria-disabled')!=='true' && el.tabIndex>=0 && !el.closest('[hidden],[inert],[aria-hidden="true"],svg,picture,img,.course-art,[role="img"]') && el.getClientRects().length && getComputedStyle(el).visibility!=='hidden');}
   function focused(){return root.activeElement||document.activeElement;}
@@ -182,6 +183,9 @@
   window.addEventListener('blur',()=>{cancelAnimationFrame(focusFrame);focusFrame=null;hideFocusRing();});
   window.addEventListener('focus',updateFocusRing);
   function apply(){
+    if(state.focus&&!focusWasEnabled)pageFocusEntryPending=true;
+    if(!state.focus)pageFocusEntryPending=false;
+    focusWasEnabled=state.focus;
     focusStyle.textContent=state.focus?'button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible,a:focus-visible{outline:4px solid #2563eb!important;outline-offset:5px!important;box-shadow:0 0 0 8px #bfdbfe!important}':'';
     targetStyle.textContent=state.targets?'button,select{min-height:45px!important;min-width:45px!important}':'';
     if(state.keyboard||state.focus){
@@ -542,13 +546,17 @@
     if(e.key==='Escape'&&(root.querySelector('dialog[open]')||document.querySelector('dialog[open]')))return;
     if(e.key==='Escape'&&!panel.hidden){e.preventDefault();latched.clear();openPanel(false);return;}
     if(e.ctrlKey&&e.altKey&&shortcutA){e.preventDefault();latched.clear();if(!e.repeat)openPanel(panel.hidden);return;}
-    // The embed launcher can sit before or after the page in DOM order.
-    // Leaving it with Tab must enter page controls, rather than skip the header
-    // or require an extra trip through the browser toolbar.
-    if(state.focus&&panel.hidden&&e.key==='Tab'&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&focused()===launcher){
-      const pageControls=controls().filter(el=>!root.contains(el));
-      const next=e.shiftKey?pageControls.at(-1):pageControls[0];
-      if(next){e.preventDefault();next.focus();return;}
+    // The host/browser may restore old content focus after settings close.
+    // Consume one forward Tab to start at the header, then keep native order.
+    if(state.focus&&panel.hidden&&e.key==='Tab'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      const startAtHeader=pageFocusEntryPending&&!e.shiftKey;
+      pageFocusEntryPending=false;
+      if(startAtHeader||focused()===launcher){
+        const pageControls=controls().filter(el=>!root.contains(el));
+        const firstHeader=pageControls.find(el=>el.closest('header,[role="banner"]'));
+        const next=e.shiftKey?pageControls.at(-1):startAtHeader?(firstHeader||pageControls[0]):pageControls[0];
+        if(next){e.preventDefault();next.focus();return;}
+      }
     }
     if(state.sticky){
       if(e.key==='Control'){latched.add('Control');return;}
