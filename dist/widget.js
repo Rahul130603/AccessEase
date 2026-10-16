@@ -684,7 +684,7 @@
   resumeVoiceNavigation();
   // Load the shared feature bundle relative to this script on any host website.
   const teamScript=document.createElement('script');
-  teamScript.src=new URL('team-features.js?v=20261015-dyslexia-reflow',document.currentScript.src).href;
+  teamScript.src=new URL('team-features.js?v=20261016-image-alt-overlay',document.currentScript.src).href;
   teamScript.onerror=()=>status('Additional settings could not load. Check the widget asset files.');
   document.head.append(teamScript);
 })();
