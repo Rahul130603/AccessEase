@@ -71,7 +71,7 @@
     voiceDeviceId=voiceInputSelect.value;
     if(state.voice){stopVoice();state.voice=true;startVoice();apply();}
   });
-  let recognition=null, scanned=null, scanIndex=-1, readingIndex=0, sentences=[], speechGeneration=0, selectedReadingText='';
+  let recognition=null, scanned=null, scanIndex=-1, readingIndex=0, readingOffset=0, readingTimer=null, sentences=[], speechGeneration=0, selectedReadingText='';
   const simpleNodes=new Map(); const simpleAttributes=new Map(); const readingTabIndexes=new Map(); const latched=new Set();
   const simpleWording=new Map(Object.entries(window.AccessEaseSimpleText||{}).filter(([,text])=>typeof text==='string'&&text.trim()).map(([text,plain])=>[text.trim().replace(/\s+/g,' '),plain]));
   const plainPhrases=[
@@ -192,16 +192,46 @@
     updateCaptions();persist();
     host.dispatchEvent(new CustomEvent('accessease:change',{detail:{...state}}));
   }
-  function stopSpeech(){speechGeneration++;if('speechSynthesis'in window)window.speechSynthesis.cancel();state.speech=false;}
+  function readingChunks(text,lang){
+    // Short, sentence-aware utterances retain punctuation and natural phrasing
+    // instead of sending a whole selected page to the faster speech engine.
+    let phrases;
+    try{phrases=[...new Intl.Segmenter(lang,{granularity:'sentence'}).segment(text)].map(item=>item.segment);}
+    catch{phrases=text.match(/[^.!?\n]+(?:[.!?]+["'”’)]*|\n|$)/g)||[text];}
+    return phrases.flatMap(phrase=>{
+      const chunks=[];let remaining=phrase.trim();
+      while(remaining.length>240){
+        let end=remaining.lastIndexOf(' ',240);
+        if(end<80)end=240;
+        // Never split a UTF-16 surrogate pair.
+        if(/[\uD800-\uDBFF]/.test(remaining[end-1]))end--;
+        chunks.push(remaining.slice(0,end));remaining=remaining.slice(end).trimStart();
+      }
+      if(remaining)chunks.push(remaining);
+      return chunks;
+    });
+  }
+  function readingVoice(lang){
+    const voices=window.speechSynthesis.getVoices?.()||[],tag=lang.toLowerCase().replaceAll('_','-');
+    const sameLanguage=voices.filter(voice=>voice.lang.toLowerCase().replaceAll('_','-').split('-')[0]===tag.split('-')[0]);
+    const exact=sameLanguage.filter(voice=>voice.lang.toLowerCase().replaceAll('_','-')===tag);
+    const candidates=exact.length?exact:sameLanguage;
+    return candidates.find(voice=>/natural|neural|google/i.test(voice.name))||candidates.find(voice=>voice.default)||candidates[0];
+  }
+  function stopSpeech(){speechGeneration++;clearTimeout(readingTimer);readingTimer=null;if('speechSynthesis'in window)window.speechSynthesis.cancel();state.speech=false;}
   function speakNext(generation){
     if(!state.speech||generation!==speechGeneration)return;
     if(readingIndex>=sentences.length){sentences=[];readingIndex=0;status('Finished reading the selected text. Highlight another passage to read it.');return;}
-    const utterance=new SpeechSynthesisUtterance(sentences[readingIndex]);utterance.rate=state.rate;utterance.lang=document.documentElement.lang||'en';
-    utterance.onend=()=>{if(generation===speechGeneration){readingIndex++;speakNext(generation);}};
+    const start=readingOffset,lang=document.documentElement.lang||'en';
+    const utterance=new SpeechSynthesisUtterance(sentences[readingIndex].slice(start));
+    utterance.rate=state.rate;utterance.pitch=1;utterance.volume=1;utterance.lang=lang;
+    const voice=readingVoice(lang);if(voice){utterance.voice=voice;utterance.lang=voice.lang;}
+    utterance.onboundary=event=>{if(generation===speechGeneration && event.name==='word' && Number.isInteger(event.charIndex) && event.charIndex>=0 && event.charIndex<utterance.text.length)readingOffset=start+event.charIndex;};
+    utterance.onend=()=>{if(generation===speechGeneration){readingIndex++;readingOffset=0;const pause=state.rate>1.1&&/[.!?]["'”’)]*$/.test(utterance.text)?100:0;readingTimer=setTimeout(()=>{readingTimer=null;speakNext(generation);},pause);}};
     utterance.onerror=()=>{if(generation===speechGeneration){stopSpeech();apply();status('Voice reading could not start. Check your browser audio settings.');}};
     window.speechSynthesis.speak(utterance);
   }
-  function startSpeech(){if(!('speechSynthesis'in window)){state.speech=false;status('Voice reading is unavailable in this browser.');return;}stopSpeech();state.speech=true;readingIndex=0;sentences=selectedReadingText?[selectedReadingText]:[];if(!sentences.length){status('Text-to-Speech is on. Drag to highlight the text you want to hear.');return;}status(`Reading selected text: “${selectedReadingText.slice(0,100)}${selectedReadingText.length>100?'…':''}”`);speakNext(speechGeneration);}
+  function startSpeech(){if(!('speechSynthesis'in window)){state.speech=false;status('Voice reading is unavailable in this browser.');return;}stopSpeech();state.speech=true;readingIndex=0;readingOffset=0;sentences=selectedReadingText?readingChunks(selectedReadingText,document.documentElement.lang||'en'):[];if(!sentences.length){status('Text-to-Speech is on. Drag to highlight the text you want to hear.');return;}status(`Reading selected text: “${selectedReadingText.slice(0,100)}${selectedReadingText.length>100?'…':''}”`);speakNext(speechGeneration);}
   function captureSelection(){const selection=window.getSelection();if(selection&&!selection.isCollapsed&&main().contains(selection.anchorNode)&&main().contains(selection.focusNode)){selectedReadingText=selection.toString().trim();return true;}return false;}
   document.addEventListener('selectionchange',captureSelection);
   document.addEventListener('pointerup',event=>{
@@ -456,7 +486,7 @@
     if(id==='captions'&&state.captions)status(updateCaptions()?'Available video captions enabled. Play the free lesson to see them.':'No caption tracks found. This website needs subtitle tracks for captions.');
     apply();
   }));
-  root.querySelector('#rate').addEventListener('change',e=>{state.rate=normalizeReadingRate(Number(e.target.value));if(state.speech){speechGeneration++;window.speechSynthesis.cancel();speakNext(speechGeneration);}apply();status(`Voice reading speed: ${state.rate}×.`);});
+  root.querySelector('#rate').addEventListener('change',e=>{state.rate=normalizeReadingRate(Number(e.target.value));if(state.speech){speechGeneration++;clearTimeout(readingTimer);readingTimer=null;window.speechSynthesis.cancel();speakNext(speechGeneration);}apply();status(`Voice reading speed: ${state.rate}×.`);});
   root.querySelector('#align').addEventListener('change',e=>{state.align=e.target.value;apply();status(`All page text alignment: ${state.align}.`);});
   let stickyAltCaptured=false;
   document.addEventListener('keydown',e=>{
