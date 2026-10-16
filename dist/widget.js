@@ -141,6 +141,34 @@
   function focused(){return root.activeElement||document.activeElement;}
   function move(direction){const items=controls();if(!items.length)return;const current=items.indexOf(focused());const index=current<0?(direction>0?0:items.length-1):(current+direction+items.length)%items.length;items[index].focus();}
   function updateCaptions(){let tracks=0;document.querySelectorAll('video').forEach(v=>{for(const track of v.textTracks){if(['captions','subtitles'].includes(track.kind)){track.mode=state.captions?'showing':'disabled';tracks++;}}});return tracks;}
+  let focusRing=null,focusFrame=null;
+  function hideFocusRing(){if(focusRing){focusRing.hidden=true;focusRing.style.setProperty('display','none','important');}}
+  function updateFocusRing(){
+    cancelAnimationFrame(focusFrame);focusFrame=null;
+    const el=document.activeElement;
+    if(!state.focus||!document.hasFocus()||!el||el===host||el===document.body||el.closest('[data-uaw-ignore]')||!el.matches(':focus-visible')||!el.getClientRects().length){
+      hideFocusRing();
+      return;
+    }
+    // A CSS outline stops at the element box even when its text overflows.
+    // Measure painted text as well, without resizing the host page's layout.
+    const range=document.createRange();range.selectNodeContents(el);
+    const rects=[el.getBoundingClientRect(),...range.getClientRects()].filter(rect=>rect.width>0&&rect.height>0);
+    if(!rects.length){hideFocusRing();return;}
+    const left=Math.min(...rects.map(rect=>rect.left))-6,top=Math.min(...rects.map(rect=>rect.top))-6;
+    const right=Math.max(...rects.map(rect=>rect.right))+6,bottom=Math.max(...rects.map(rect=>rect.bottom))+6;
+    if(!focusRing){
+      focusRing=document.createElement('div');focusRing.dataset.aeFocusRing='';focusRing.dataset.uawIgnore='';focusRing.setAttribute('aria-hidden','true');
+      document.body.append(focusRing);
+    }
+    focusRing.hidden=false;
+    for(const [property,value] of Object.entries({all:'initial',display:'block',position:'fixed','box-sizing':'border-box',left:`${left}px`,top:`${top}px`,width:`${right-left}px`,height:`${bottom-top}px`,border:'4px solid #2563eb','box-shadow':'0 0 0 3px #bfdbfe','pointer-events':'none','z-index':'2147483646',margin:'0',transform:'none',transition:'none'}))focusRing.style.setProperty(property,value,'important');
+    focusFrame=requestAnimationFrame(updateFocusRing);
+  }
+  document.addEventListener('focusin',updateFocusRing,true);
+  document.addEventListener('focusout',()=>{cancelAnimationFrame(focusFrame);focusFrame=requestAnimationFrame(updateFocusRing);},true);
+  window.addEventListener('blur',()=>{cancelAnimationFrame(focusFrame);focusFrame=null;hideFocusRing();});
+  window.addEventListener('focus',updateFocusRing);
   function apply(){
     focusStyle.textContent=state.focus?'button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible,a:focus-visible{outline:4px solid #2563eb!important;outline-offset:5px!important;box-shadow:0 0 0 8px #bfdbfe!important}':'';
     targetStyle.textContent=state.targets?'button,select{min-height:45px!important;min-width:45px!important}':'';
@@ -157,6 +185,11 @@
       }
       document.querySelectorAll('video[controls],audio[controls],[role="button"],[role="link"]').forEach(el=>{
         if(!el.closest('[hidden],[inert],[aria-hidden="true"],#accessease-widget,.course-art,[role="img"]'))targets.add(el);
+      });
+      // Restore skipped top-level header controls, while leaving intentional
+      // roving tab indexes inside menus/toolbars and hidden dropdowns alone.
+      document.querySelectorAll('header a[href],header button,[role="banner"] a[href],[role="banner"] button').forEach(el=>{
+        if(el.tabIndex<0&&!el.disabled&&el.getAttribute('aria-disabled')!=='true'&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'&&!el.closest('[hidden],[inert],[aria-hidden="true"],[role="menu"],[role="menubar"],[role="toolbar"],[role="tablist"]'))targets.add(el);
       });
       targets.forEach(el=>{
         if(!readingTabIndexes.has(el))readingTabIndexes.set(el,el.getAttribute('tabindex'));
@@ -176,7 +209,6 @@
     });
     const flexAlignment=state.align==='center'?'center':state.align==='right'?'flex-end':'flex-start';
     style.textContent=`${state.align!=='original'?`body,body *{text-align:${state.align}!important}body [data-ae-text-flex]{justify-content:${flexAlignment}!important}`:''}
-    ${state.focus?'body :focus-visible,body [data-ae-reading-target]:focus-visible{outline:4px solid #2563eb!important;outline-offset:5px!important;box-shadow:0 0 0 8px #bfdbfe!important}':''}
     ${state.targets?'body a,body button,body input,body select{min-height:45px!important;min-width:45px!important}body a{display:inline-flex!important;align-items:center!important}':''}
     ${state.highlight?'body p:hover,body p:focus-within{background:#bfdbfe!important;color:#0f172a!important;outline:2px solid #2563eb!important;outline-offset:5px!important;border-radius:5px}':''}
     ${state.keyboard?'[data-ae-reading-target]:focus{outline:3px solid #2563eb!important;outline-offset:5px!important;border-radius:5px}':''}
@@ -190,6 +222,8 @@
     const count=Object.entries(state).filter(([k,v])=>k==='rate'?v!==1:k==='align'?v!=='original':v===true).length;
     root.querySelector('.count').textContent=`${count+(teamExtension?.activeCount()||0)} active`;
     updateCaptions();persist();
+    if(!state.focus&&focusRing){focusRing.remove();focusRing=null;}
+    updateFocusRing();
     host.dispatchEvent(new CustomEvent('accessease:change',{detail:{...state}}));
   }
   function readingChunks(text,lang){
@@ -519,7 +553,7 @@
     if(records.some(record=>{
       const parent=record.target.nodeType===Node.ELEMENT_NODE?record.target:record.target.parentElement;
       if(!parent||parent===host||parent.closest('#accessease-widget,script,style,noscript'))return false;
-      return record.type==='childList'&&[...record.addedNodes].some(node=>node!==host&&(node.nodeType===Node.ELEMENT_NODE||state.simple&&node.nodeType===Node.TEXT_NODE))||state.simple&&(record.type==='characterData'||record.type==='attributes');
+      return record.type==='childList'&&[...record.addedNodes].some(node=>node!==host&&!node.matches?.('[data-ae-focus-ring]')&&(node.nodeType===Node.ELEMENT_NODE||state.simple&&node.nodeType===Node.TEXT_NODE))||state.simple&&(record.type==='characterData'||record.type==='attributes');
     }))apply();
   });observer.observe(document.body,{childList:true,characterData:true,attributes:true,attributeFilter:['placeholder','data-simple','aria-label','title','alt'],subtree:true});
   window.addEventListener('pagehide',()=>{stopSpeech();stopVoice();});
