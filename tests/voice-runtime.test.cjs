@@ -17,6 +17,7 @@ function setup(getUserMedia,{trackInput=false,devices=[],rejectTrack=false,conti
     constructor(){sessions.push(this);}
     start(track){this.track=track;if(track&&rejectTrack)throw new TypeError('Audio track input unavailable');this.started=true;}
     abort(){this.aborted=true;}
+    stop(){this.stopped=true;}
   }
   w.SpeechRecognition=Recognition;
   Object.defineProperty(w.navigator,'mediaDevices',{value:{getUserMedia,enumerateDevices:async()=>devices}});
@@ -38,6 +39,71 @@ function speech(session,index,transcript){
   results[index]=[{transcript}];results[index].isFinal=true;
   session.onresult({resultIndex:index,results});
 }
+
+function resultClock(w){
+  const timers=new Map();let id=0;
+  w.setTimeout=(callback,delay)=>{timers.set(++id,{callback,delay});return id;};
+  w.clearTimeout=timer=>timers.delete(timer);
+  return {timers,tick(delay){const entry=[...timers].find(([,timer])=>timer.delay===delay);assert.ok(entry,`timer for ${delay}ms exists`);timers.delete(entry[0]);entry[1].callback();}};
+}
+
+test('speech ending requests a final transcript and runs a completed command once',()=>{
+  const t=setup(()=>{}),clock=resultClock(t.w);
+  try{
+    t.root.querySelector('[data-setting="voice"]').click();
+    const session=t.sessions[0];session.onaudiostart();session.onspeechstart();
+    const partial=[{transcript:'scroll do'}];partial.isFinal=false;
+    session.onresult({resultIndex:0,results:[partial]});
+    session.onspeechend();clock.tick(1500);
+    assert.equal(session.stopped,true,'graceful stop asks Chrome to finalize speech');
+    assert.equal(session.aborted,undefined);
+    assert.equal(t.root.querySelector('.body').scrollTop,0,'partial words never execute');
+    speech(session,0,'scroll down');speech(session,0,'scroll down');
+    assert.equal(t.root.querySelector('.body').scrollTop,450,'complete result runs once');
+    assert.ok(![...clock.timers.values()].some(timer=>[1500,3000,8000].includes(timer.delay)));
+    session.onend();clock.tick(200);
+    assert.equal(t.sessions.length,2,'listening resumes after graceful finalization');
+  }finally{t.w.close();}
+});
+
+test('Hearing with no final result reconnects instead of remaining stuck and Stop cancels recovery',()=>{
+  const t=setup(()=>{}),clock=resultClock(t.w);
+  try{
+    t.root.querySelector('[data-setting="voice"]').click();
+    const old=t.sessions[0];old.onaudiostart();old.onspeechstart();
+    const stale=old.onresult;
+    clock.tick(8000);
+    assert.equal(old.aborted,true);
+    assert.match(t.root.querySelector('.status').textContent,/Reconnecting automatically/);
+    assert.equal(t.w.AccessEase.getSettings().voice,true);
+    clock.tick(200);
+    const next=t.sessions[1];next.onaudiostart();
+    const final=[{transcript:'scroll down'}];final.isFinal=true;
+    stale({resultIndex:0,results:[final]});
+    assert.equal(t.root.querySelector('.body').scrollTop,0,'retired callbacks cannot execute commands');
+    speech(next,0,'scroll down');
+    assert.equal(t.root.querySelector('.body').scrollTop,450);
+    next.onspeechstart();next.onspeechend();clock.tick(1500);clock.tick(3000);
+    assert.match(t.root.querySelector('.status').textContent,/Reconnecting automatically/);
+    t.root.querySelector('.voice-indicator button').click();
+    assert.equal(clock.timers.size,0);
+    assert.deepEqual(t.errors,[]);
+  }finally{t.w.close();}
+});
+
+test('repeated missing transcripts stop with an actionable message',()=>{
+  const t=setup(()=>{}),clock=resultClock(t.w);
+  try{
+    t.root.querySelector('[data-setting="voice"]').click();
+    for(let i=0;i<3;i++){
+      t.sessions[i].onaudiostart();t.sessions[i].onspeechstart();clock.tick(8000);
+      if(i<2)clock.tick(200);
+    }
+    assert.equal(t.w.AccessEase.getSettings().voice,false);
+    assert.match(t.root.querySelector('.status').textContent,/Chrome is not returning complete words/);
+    assert.equal(clock.timers.size,0);
+  }finally{t.w.close();}
+});
 
 test('voice chooses the single on-screen matching link instead of its off-screen footer duplicate',()=>{
   const t=setup(()=>{});const clicked=[];

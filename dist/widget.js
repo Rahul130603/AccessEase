@@ -307,7 +307,7 @@
     if(container){if(typeof container.scrollBy==='function')container.scrollBy({top:amount,behavior:'auto'});else container.scrollTop+=amount;}
     else window.scrollBy({top:amount,behavior:'auto'});
   }
-  let voiceRestartTimer=null, voiceStartTimer=null, voiceStartFailures=0, voiceNetworkFailures=0;
+  let voiceRestartTimer=null, voiceStartTimer=null, voiceResultTimer=null, voiceResultFailures=0, voiceStartFailures=0, voiceNetworkFailures=0;
   let voiceInputStream=null,voiceInputRequest=0,voiceInputPending=false,voiceDeviceId='',voiceNativeInput=false;
   function supportsVoiceInputTrack(){
     // Chrome desktop 135+ supports SpeechRecognition.start(MediaStreamTrack).
@@ -394,12 +394,13 @@
   }
   function releaseVoiceSession(session){
     clearTimeout(voiceStartTimer);voiceStartTimer=null;
+    clearTimeout(voiceResultTimer);voiceResultTimer=null;
     if(recognition===session)recognition=null;
-    if(session){session.onstart=session.onaudiostart=session.onsoundstart=session.onspeechstart=session.onresult=session.onerror=session.onend=session.onnomatch=null;try{session.abort();}catch{}}
+    if(session){session.onstart=session.onaudiostart=session.onsoundstart=session.onspeechstart=session.onspeechend=session.onresult=session.onerror=session.onend=session.onnomatch=null;try{session.abort();}catch{}}
   }
   function stopVoice(){
     try{window.sessionStorage.removeItem(voiceNavigationKey);}catch{}
-    state.voice=false;voiceNetworkFailures=0;
+    state.voice=false;voiceNetworkFailures=0;voiceResultFailures=0;
     clearTimeout(voiceRestartTimer);clearTimeout(voiceStartTimer);voiceRestartTimer=voiceStartTimer=null;
     releaseVoiceSession(recognition);
     stopVoiceInput();
@@ -435,7 +436,7 @@
     const API=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!API){stopVoice();apply();setVoicePhase('error');status('Voice commands are unavailable here. Open this page in Google Chrome with speech recognition support.');return;}
     if(window.isSecureContext===false){stopVoice();apply();setVoicePhase('error');status('Microphone access needs HTTPS or localhost. Open this page on a secure address, then turn Voice Commands on again.');return;}
-    if(!restarting){voiceStartFailures=0;voiceNetworkFailures=0;voiceNativeInput=false;status('Starting microphone. Allow Chrome microphone access if prompted.');}
+    if(!restarting){voiceStartFailures=0;voiceNetworkFailures=0;voiceResultFailures=0;voiceNativeInput=false;status('Starting microphone. Allow Chrome microphone access if prompted.');}
     if(!voiceNativeInput&&supportsVoiceInputTrack()&&!voiceInputStream){openVoiceInput(API);return;}
     beginVoiceRecognition(API);
   }
@@ -448,7 +449,17 @@
     try{session=new API();}catch{stopVoice();apply();setVoicePhase('error');status('The browser speech service could not open. Try Voice Commands in Google Chrome.');return;}
     recognition=session;setVoicePhase('starting','Starting Chrome speech recognition…');
     session.continuous=true;session.interimResults=true;session.lang='en-US';
-    let audioStarted=false;const handledResults=new Map();
+    let audioStarted=false,awaitingResult=false;const handledResults=new Map();
+    function resultTimedOut(){
+      if(recognition!==session||!state.voice||!awaitingResult)return;
+      if(fallbackToNativeInput())return;
+      if(++voiceResultFailures>=3){
+        stopVoice();apply();setVoicePhase('error');
+        status('Microphone hears speech, but Chrome is not returning complete words. Check your internet connection and speech language, then turn Voice Commands on again.');return;
+      }
+      retry('Speech service did not return a complete command. Reconnecting automatically; please repeat your command.');
+    }
+    function waitForResult(delay=8000){clearTimeout(voiceResultTimer);voiceResultTimer=setTimeout(resultTimedOut,delay);}
     function retry(message,delay=200){
       releaseVoiceSession(session);
       if(!state.voice)return;
@@ -475,8 +486,19 @@
     };
     session.onaudiostart=()=>{if(recognition!==session||!state.voice)return;audioStarted=true;clearTimeout(voiceStartTimer);voiceStartTimer=null;voiceStartFailures=0;setVoicePhase('listening','Listening · say “scroll down” or “click Save bookmark”.');status('Microphone ready. Listening: say “scroll down”, “click Save bookmark”, or “close settings”.');};
     session.onsoundstart=()=>{if(recognition!==session||!state.voice)return;setVoicePhase('listening','Microphone hears sound. Listening for words…');status('Microphone hears sound. Listening for a command…');};
-    session.onspeechstart=()=>{if(recognition!==session||!state.voice)return;setVoicePhase('listening','Hearing your command…');status('Hearing speech. Waiting for the complete command…');};
-    session.onnomatch=()=>{if(recognition===session&&state.voice)status('Speech was heard but not understood. Try “scroll down” or “click Save bookmark”.');};
+    session.onspeechstart=()=>{if(recognition!==session||!state.voice)return;awaitingResult=true;waitForResult();setVoicePhase('listening','Hearing your command…');status('Hearing speech. Waiting for the complete command…');};
+    session.onspeechend=()=>{
+      if(recognition!==session||!state.voice||!awaitingResult)return;
+      clearTimeout(voiceResultTimer);
+      // Continuous recognition may hold its final result after speech ends.
+      // A graceful stop asks for that result; abort is reserved for recovery.
+      voiceResultTimer=setTimeout(()=>{
+        if(recognition!==session||!state.voice||!awaitingResult)return;
+        waitForResult(3000);
+        try{session.stop?.();}catch{resultTimedOut();}
+      },1500);
+    };
+    session.onnomatch=()=>{if(recognition===session&&state.voice){awaitingResult=false;clearTimeout(voiceResultTimer);voiceResultTimer=null;setVoicePhase('listening','Please repeat your command.');status('Speech was heard but not understood. Try “scroll down” or “click Save bookmark”.');}};
     session.onresult=e=>{
       if(recognition!==session||!state.voice)return;
       for(let i=e.resultIndex;i<e.results.length;i++){
@@ -484,8 +506,8 @@
         if(typeof transcript==='string'&&transcript.trim()){
           audioStarted=true;clearTimeout(voiceStartTimer);voiceStartTimer=null;voiceStartFailures=0;
           voiceNetworkFailures=0;
-          if(result.isFinal&&handledResults.get(i)!==transcript){handledResults.set(i,transcript);runVoiceCommand(transcript);}
-          else if(!result.isFinal)status(`Hearing “${transcript.trim()}”…`);
+          if(result.isFinal){awaitingResult=false;clearTimeout(voiceResultTimer);voiceResultTimer=null;voiceResultFailures=0;if(handledResults.get(i)!==transcript){handledResults.set(i,transcript);runVoiceCommand(transcript);}}
+          else {awaitingResult=true;waitForResult();status(`Hearing “${transcript.trim()}”…`);}
         }
         if(!state.voice)break;
       }
