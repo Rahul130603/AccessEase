@@ -10,15 +10,33 @@ test('20 languages include Tamil and Hindi with bundled flags and complete match
   assert.equal(new Set(PANEL_LANGUAGES.map(([code])=>code)).size,20);
   assert.ok(PANEL_LANGUAGES.some(([code])=>code==='ta'));
   assert.ok(PANEL_LANGUAGES.some(([code])=>code==='hi'));
+  assert.deepEqual(PANEL_LANGUAGES.filter(([, ,country])=>country==='in').map(([code])=>code).sort(),['hi','ta']);
+  assert.ok(!PANEL_LANGUAGES.some(([code])=>['bn','te','mr'].includes(code)));
+  for(const code of ['pl','uk','th'])assert.ok(PANEL_LANGUAGES.some(([language])=>language===code));
+  for(const [language,country] of [['en','gb'],['pt','pt'],['ar','sa'],['uk','ua']]){
+    assert.equal(PANEL_LANGUAGES.find(([code])=>code===language)[2],country);
+  }
   const keys=Object.keys(panelDictionaries.ta).sort();
   for(const [code,,country] of PANEL_LANGUAGES){
     assert.match(decodeURIComponent(flagImage(country)), /<svg/);
     assert.doesNotMatch(decodeURIComponent(flagImage(country)), /undefined/);
+    assert.doesNotMatch(decodeURIComponent(flagImage(country)), /<script|https?:\/\/(?!www\.w3\.org)/);
     if(code==='en')continue;
     assert.deepEqual(Object.keys(panelDictionaries[code]).sort(),keys);
     assert.ok(Object.values(panelDictionaries[code]).every(value=>typeof value==='string'&&value.trim()));
     assert.notEqual(translatePanelText('Reduce Motion',code),'Reduce Motion');
   }
+});
+
+test('flags use the complete source assets instead of the former hand-drawn approximations',()=>{
+  const assets=JSON.parse(fs.readFileSync(new URL('../integration/flags/flags.json',import.meta.url),'utf8'));
+  for(const [, ,country] of PANEL_LANGUAGES){
+    assert.equal(decodeURIComponent(flagImage(country).split(',')[1]),assets[country]);
+    assert.match(assets[country],new RegExp(`id="flag-icons-${country}"`));
+  }
+  assert.match(assets.in,/rotate\(15\)/,'Indian flag includes the full radial wheel artwork');
+  assert.match(assets.in,/<use xlink:href="#in-d"/);
+  assert.match(assets.sa,/<path/,'Saudi flag retains its emblem paths');
 });
 
 test('panel translation preserves input values, implicit option values, website text, dynamic changes and preference isolation', async()=>{

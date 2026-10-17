@@ -686,7 +686,7 @@
   resumeVoiceNavigation();
   // Load the shared feature bundle relative to this script on any host website.
   const teamScript=document.createElement('script');
-  teamScript.src=new URL('team-features.js?v=20261017-panel-languages',document.currentScript.src).href;
+  teamScript.src=new URL('team-features.js?v=20261017-panel-flags',document.currentScript.src).href;
   teamScript.onerror=()=>status('Additional settings could not load. Check the widget asset files.');
   document.head.append(teamScript);
 })();
