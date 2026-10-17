@@ -49,7 +49,8 @@ export function createSettingsLayout(base) {
       ordered.forEach((card,index)=>{if(group.controls.children[index]!==card)group.controls.insertBefore(card,group.controls.children[index]);});
       let visible=0;
       for(const card of cards){
-        const label=card.querySelector('.card-title,.motion-title,strong,label,summary')?.textContent||'';
+        const labelNode=card.querySelector('.card-title,.motion-title,strong,label,summary');
+        const label=base.panelLanguage?.searchText(labelNode)||labelNode?.textContent||'';
         card.hidden=!label.toLowerCase().includes(query);
         if(!card.hidden)visible++;
       }
@@ -65,5 +66,5 @@ export function createSettingsLayout(base) {
   const observer=new MutationObserver(filter);
   for(const group of groups.values())observer.observe(group.controls,{childList:true,subtree:true});
   filter();
-  return {targetFor};
+  return {targetFor,filter};
 }

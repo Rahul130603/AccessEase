@@ -30,6 +30,8 @@ import { createSudhinFeatures } from './sudhinFeatures.js';
 import { consumerPanels } from './ConsumerPanels.jsx';
 import AudioTranscripts from './AudioTranscripts.jsx';
 import { collectSteps, stepLabel, focusStep } from './stepGuide.js';
+import { installPanelLanguage } from './panelLanguage.js';
+import languageCss from './panelLanguage.css?inline';
 
 const base = window.AccessEase;
 let settingsLayout;
@@ -278,7 +280,7 @@ function Tools({refresh}) {
       {id==='summary'&&<p className="team-description">Creates up to five key points in a separate page card.</p>}
       {id==='progress'&&<p className="team-description">Shows how far you have scrolled through this page.</p>}
       {id==='distraction'&&<p className="team-description">Hides marked ads, sidebars and cookie banners. Main content stays available.</p>}
-      {id==='steps'&&<>{tools.steps&&<ol>{headings.map((heading,i)=><li key={i}><button aria-current={i===step?'step':undefined} onClick={()=>{base.close();goTo(i);}}>{i+1}. {stepLabel(heading)}</button></li>)}</ol>}</>}
+      {id==='steps'&&<>{tools.steps&&<ol>{headings.map((heading,i)=><li key={i}><button data-panel-original-content aria-current={i===step?'step':undefined} onClick={()=>{base.close();goTo(i);}}>{i+1}. {stepLabel(heading)}</button></li>)}</ol>}</>}
       {id==='notifications'&&<p className="team-description">Shows a visible, non-flashing message for form errors and page status updates.</p>}
     </Card>)}
     <Card id="timeLimits" title="Extend Session Time" symbol="◷"><p className="team-description">Requires this website to provide a session-extension service.</p><button onClick={extendTime}>Request 5 more minutes</button><p role="status">{timeState}</p></Card>
@@ -300,7 +302,7 @@ function Preferences() {
   function builtIn(id){base.reset();if(id==='reading'){changeVisual({...SPACING_PRESETS.comfortable,spacingPreset:'comfortable',dyslexiaFont:true});base.setSettings({focus:true});}if(id==='lowMotion'){navin.actions.applyProfile({id:'reducedMotion',label:'Reduced motion',patch:{motion:{reduceMotion:'on',pauseAnimations:true,pauseAutoMedia:true}}});}if(id==='contrast'){changeVisual({theme:'contrast'});base.setSettings({focus:true,targets:true});}}
   function saveProfile(){const name=profileName.trim().slice(0,50);if(!name)return;const next=[...profiles.filter(profile=>profile.name!==name),{name,settings:snapshot()}].slice(-10);setProfiles(next);try{localStorage.setItem('accessease.team.profiles.v2',JSON.stringify(next));setMessage('Profile saved.');}catch{setMessage('Profile is available for this visit; browser storage is unavailable.');}setProfileName('');}
   return <><Card id="preferences" title="Saved Preferences" symbol="⇄"><p className="team-description">Export or import preferences for all four modules together. Microphone and speech playback require a new user action.</p><div className="team-row"><button onClick={exportSettings}>Export preferences</button><label htmlFor="team-import">Import preferences</label><input id="team-import" type="file" accept=".json,application/json" onChange={importSettings}/></div><p role="status">{message}</p></Card>
-    <Card id="profiles" title="Accessibility Profiles" symbol="◉"><div className="team-row">{[['default','Default'],['reading','Comfortable reading'],['lowMotion','Reduced motion'],['contrast','Enhanced contrast']].map(([id,label])=><button key={id} onClick={()=>builtIn(id)}>{label}</button>)}</div><div className="team-row"><label htmlFor="team-profile-name">Save current preferences as</label><input id="team-profile-name" maxLength={50} value={profileName} onChange={event=>setProfileName(event.target.value)}/><button disabled={!profileName.trim()} onClick={saveProfile}>Save profile</button></div>{profiles.map(profile=><button style={{margin:5}} key={profile.name} onClick={()=>restoreSnapshot(profile.settings)}>{profile.name}</button>)}</Card></>;
+    <Card id="profiles" title="Accessibility Profiles" symbol="◉"><div className="team-row">{[['default','Default'],['reading','Comfortable reading'],['lowMotion','Reduced motion'],['contrast','Enhanced contrast']].map(([id,label])=><button key={id} onClick={()=>builtIn(id)}>{label}</button>)}</div><div className="team-row"><label htmlFor="team-profile-name">Save current preferences as</label><input id="team-profile-name" maxLength={50} value={profileName} onChange={event=>setProfileName(event.target.value)}/><button disabled={!profileName.trim()} onClick={saveProfile}>Save profile</button></div>{profiles.map(profile=><button data-panel-original-content style={{margin:5}} key={profile.name} onClick={()=>restoreSnapshot(profile.settings)}>{profile.name}</button>)}</Card></>;
 }
 
 function UnifiedControls() {
@@ -424,12 +426,13 @@ if(base&&!base.host.dataset.teamReady){
   // Full-viewport click-through host also keeps fixed controls stable under page filters.
   Object.assign(base.host.style,{position:'fixed',inset:'0',pointerEvents:'none',zIndex:'2147483647'});
   setToolbarHost(base.host);
-  const style=document.createElement('style');style.textContent=getStylesText()+FORM_STYLES+CONFIRM_STYLES+css+themeCss+categorizedCss;base.root.append(style);
+  const style=document.createElement('style');style.textContent=getStylesText()+FORM_STYLES+CONFIRM_STYLES+css+themeCss+categorizedCss+languageCss;base.root.append(style);
   settingsLayout=createSettingsLayout(base);
   const mount=document.createElement('div');mount.className='team-mount';base.root.querySelector('.body').append(mount);
   const total=13+visualCards.length+toolCards.length+1+navinFeatures.length+2+3+2;
   base.root.querySelector('.total').textContent=`${total} settings`;
   base.root.querySelector('.top p').textContent='One panel. Your preferences. Every page.';
+  installPanelLanguage(base,{onChange:()=>settingsLayout.filter()});
   const config=normalizeConfig({...window.AccessEaseConfig?.assist,storageKeyPrefix:'accessease.team.assist.v2'});
   const strings=createStrings(config.strings);
   createRoot(mount).render(<SettingsProvider config={config} strings={strings}><ConfirmProvider portalTarget={base.root}><AuditProvider><AltTextProvider><UnifiedControls/></AltTextProvider></AuditProvider></ConfirmProvider></SettingsProvider>);
