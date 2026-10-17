@@ -33,7 +33,7 @@ export const defaultStrings = {
     strategyInstant: 'Finish them immediately (recommended)',
     strategyPause: 'Pause them at the current frame',
     strategyHint:
-      'Finishing immediately is safer for content that animates into view, because paused reveal animations can leave content invisible.',
+      'Finish immediately holds animations at their starting frame. Pause at current frame keeps their current position and size.',
     pauseAnimationsLabel: 'Pause all animations and transitions now',
     pauseAnimationsHint:
       'Holds CSS animations, transitions and script-driven animations at their current frame. Some content that reveals itself on scroll may stay hidden until you turn this off.',

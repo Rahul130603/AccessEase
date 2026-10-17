@@ -30,7 +30,7 @@ export function buildMotionOverrideCss({ strategy = 'instant', pauseAll = false 
   const scope = '[data-a11ytb-motion-scope]';
   const targets = `${scope} *,\n${scope} *::before,\n${scope} *::after`;
 
-  if (pauseAll || strategy === 'pause') {
+  if (pauseAll) {
     return `/* accessibility toolbar: user requested pausing (data-a11ytb-motion-scope) */
 ${targets} {
   animation-play-state: paused !important;
@@ -46,11 +46,6 @@ ${scope} {
 
   return `/* accessibility toolbar: user requested reduced motion (data-a11ytb-motion-scope) */
 ${targets} {
-  animation-duration: 0.01ms !important;
-  animation-delay: 0s !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  transition-delay: 0s !important;
   scroll-behavior: auto !important;
 }
 ${scope} {
