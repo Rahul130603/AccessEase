@@ -81,6 +81,42 @@ test('swiper autoplay stops once, stays stopped, and resumes only if previously 
   assert.equal(starts, 1);
 }));
 
+test('pause commits Swiper rendered position instead of its pending destination', () => fixture(({ apply }) => {
+  const wrapper = document.getElementById('track');
+  wrapper.style.transitionDuration = '7000ms';
+  wrapper.style.transform = 'translate3d(-600px, 0px, 0px)';
+  let translate = -600, reads = 0;
+  const autoplay = { running: true, stop() { this.running = false; }, start() { this.running = true; } };
+  document.querySelector('.swiper').swiper = {
+    wrapperEl: wrapper, autoplay,
+    getTranslate() { reads++; return -127.5; },
+    setTransition(duration) { wrapper.style.transitionDuration = `${duration}ms`; },
+    setTranslate(value) { translate = value; wrapper.style.transform = `translate3d(${value}px, 0px, 0px)`; },
+  };
+  apply('pause');
+  assert.equal(translate, -127.5);
+  assert.equal(wrapper.style.transform, 'translate3d(-127.5px, 0px, 0px)');
+  assert.equal(wrapper.style.transitionDuration, '0ms');
+  apply('pause');
+  assert.equal(reads, 1);
+  assert.equal(translate, -127.5);
+  apply('pause', false);
+  assert.equal(wrapper.style.transitionDuration, '7000ms');
+  assert.equal(translate, -127.5);
+  assert.equal(autoplay.running, true);
+}));
+
+test('instant does not change Swiper transition styles or commit a new position', () => fixture(({ apply }) => {
+  document.querySelector('.swiper').swiper = {
+    wrapperEl: document.getElementById('track'),
+    autoplay: { running: true, stop() { this.running = false; }, start() {} },
+    getTranslate() { throw new Error('Only pause should commit current position'); },
+    setTransition() { throw new Error('Instant behavior must remain unchanged'); },
+    setTranslate() { throw new Error('Instant behavior must remain unchanged'); },
+  };
+  apply('instant');
+}));
+
 test('toolbar and originally paused animations remain unchanged; separate Pause Animations keeps its behavior', () => fixture(({ apply, animate, frames }) => {
   const toolbar = animate(500, document.querySelector('#a11y button'));
   const paused = animate(700); paused.playState = 'paused';

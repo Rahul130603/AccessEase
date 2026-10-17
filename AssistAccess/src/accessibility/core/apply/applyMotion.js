@@ -21,6 +21,7 @@ export function createMotionApplier() {
   /** @type {Set<HTMLMediaElement>} */
   const pausedMedia = new Set();
   const stoppedCarousels = new Set();
+  const heldCarousels = new Map();
   let scopeElement = null;
   let signature = null;
   let recheckTimer = null;
@@ -47,21 +48,50 @@ export function createMotionApplier() {
     mediaObserver.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['autoplay','src']});
   }
 
-  function stopCarousels(root) {
+  function stopCarousels(root, strategy) {
     root.querySelectorAll('.swiper').forEach(element => {
       if (isOwnedByToolbar(element)) return;
       const swiper = element.swiper;
-      if (!swiper || swiper.destroyed || stoppedCarousels.has(swiper) || !swiper.autoplay?.running) return;
-      swiper.autoplay.stop();
-      stoppedCarousels.add(swiper);
+      if (!swiper || swiper.destroyed) return;
+      const owned = stoppedCarousels.has(swiper);
+      if (!owned && !swiper.autoplay?.running) return;
+      // Swiper's translate field is the destination, not the position currently
+      // painted during its CSS transition. Read the rendered position first.
+      const hold = strategy === 'pause' && !heldCarousels.has(swiper)
+        && swiper.wrapperEl && typeof swiper.getTranslate === 'function'
+        && typeof swiper.setTranslate === 'function' && typeof swiper.setTransition === 'function';
+      const current = hold ? swiper.getTranslate() : null;
+      if (!owned) {
+        swiper.autoplay.stop();
+        stoppedCarousels.add(swiper);
+      }
+      if (hold && Number.isFinite(current)) {
+        const style = swiper.wrapperEl.style;
+        heldCarousels.set(swiper, {
+          duration: style.getPropertyValue('transition-duration'),
+          priority: style.getPropertyPriority('transition-duration'),
+        });
+        // Commit the visible position before cancelling the old transition;
+        // otherwise it snaps to the pending slide destination on cancellation.
+        swiper.setTransition(0);
+        swiper.setTranslate(current);
+      }
     });
   }
 
   function resumeCarousels() {
     stoppedCarousels.forEach(swiper => {
-      if (!swiper.destroyed) swiper.autoplay?.start();
+      if (!swiper.destroyed) {
+        const saved = heldCarousels.get(swiper);
+        if (saved) {
+          if (saved.duration) swiper.wrapperEl.style.setProperty('transition-duration', saved.duration, saved.priority);
+          else swiper.wrapperEl.style.removeProperty('transition-duration');
+        }
+        swiper.autoplay?.start();
+      }
     });
     stoppedCarousels.clear();
+    heldCarousels.clear();
   }
 
   function resumeAnimations() {
@@ -157,7 +187,7 @@ export function createMotionApplier() {
       motionFrame = null;
       if (!latest.pauseMotion || !latest.root) return;
       if (!document.hidden) {
-        stopCarousels(latest.root);
+        stopCarousels(latest.root, latest.strategy);
         pauseRunningAnimations(latest.root, latest.strategy);
       }
       motionFrame = window.requestAnimationFrame(tick);
@@ -226,7 +256,7 @@ export function createMotionApplier() {
     const nextSignature = `${strategy}|${pauseAll ? 'pauseAll' : 'reduce'}`;
     // Snapshot CSS transitions before any override can cancel or retime them.
     if (reduce && !pauseAll) {
-      stopCarousels(root);
+      stopCarousels(root, strategy);
       pauseRunningAnimations(root, strategy);
     } else resumeCarousels();
     if (!pauseAll && !reduce) {
